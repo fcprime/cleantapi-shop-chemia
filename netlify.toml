@@ -1,6 +1,6 @@
 [build]
-  command = "npx next build"
-  publish = ".next"
+  command = "bash scripts/build-netlify.sh"
+  publish = "netlify-dist"
 
 [build.environment]
   NODE_VERSION = "22"
