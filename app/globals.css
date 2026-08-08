@@ -296,7 +296,7 @@ footer{background:#0e1814}
   mix-blend-mode:normal;
 }
 .hero-photo .hero-products img{
-  mix-blend-mode:multiply;
+  mix-blend-mode:normal;
   max-height:83%;
   margin:0 -8%!important;
   filter:drop-shadow(0 20px 18px rgba(31,70,53,.18));
