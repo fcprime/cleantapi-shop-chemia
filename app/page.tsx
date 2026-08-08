@@ -407,7 +407,7 @@ export default function Home() {
 
     <section className="hero"><div className="container hero-grid">
       <div className="hero-copy"><p className="eyebrow">{t.eyebrow}</p><h1>{t.hero}</h1><p className="hero-text">{t.heroText}</p><div className="hero-buttons"><button className="primary" onClick={jumpCatalog}>{t.openCatalog} <span>→</span></button><button className="secondary" onClick={() => document.getElementById("problems")?.scrollIntoView({ behavior: "smooth" })}>{t.choose} <span>→</span></button></div><div className="trust"><span>◇ {t.checked}</span><span>◌ {t.simple}</span><span>▱ {t.europe}</span></div></div>
-      <div className="hero-photo"><div className="hero-products"><img src="/products/global-acid-ocean-official.jpg" alt="Global Acid Ocean"/><img src="/products/global-power-blast-official.webp" alt="Global Power Blast"/><img src="/products/chemspec-enzyme.jpeg" alt="Chemspec Enzymatic Cleaner"/></div><div className="expert-stamp">✓<span>{t.checked}</span></div></div>
+      <div className="hero-photo"><div className="hero-products"><img src="/products/hero-global-acid-ocean.webp" alt="Global Acid Ocean"/><img src="/products/hero-global-power-blast.webp" alt="Global Power Blast"/><img src="/products/hero-chemspec-enzyme.webp" alt="Chemspec Enzymatic Cleaner"/></div><div className="expert-stamp">✓<span>{t.checked}</span></div></div>
     </div></section>
 
     <section className="shop-entry container" id="catalog"><div className="catalog-top"><div><p className="eyebrow">{t.professionalCatalog}</p><h2>{t.catalogTitle}</h2><p>{lang === "ua" ? "Оберіть потрібний розділ — покажемо товари без зайвих кроків." : "Выберите нужный раздел — покажем товары без лишних шагов."}</p></div></div>

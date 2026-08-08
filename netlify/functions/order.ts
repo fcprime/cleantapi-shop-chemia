@@ -1,5 +1,6 @@
 import catalog from "../../app/catalog.json";
 import newProducts from "../../app/new-products.json";
+import type { Config, Context } from "@netlify/functions";
 
 declare const Netlify: { env: { get(name: string): string | undefined } };
 
@@ -16,7 +17,7 @@ const bundles: Record<string, { name: string; price: number }> = {
 
 const clean = (value: unknown, max = 160) => String(value ?? "").trim().slice(0, max);
 const escape = (value: unknown) => clean(value, 300).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-const allProducts = new Map(
+const productIndex = () => new Map(
   ([...catalog, ...newProducts] as Product[]).map((product) => [String(product.id), product]),
 );
 
@@ -28,7 +29,7 @@ function variants(product: Product) {
   return [{ size: "1 шт.", price: Number(product.price) || 0 }];
 }
 
-export default async (request: Request) => {
+export default async (request: Request, _context: Context) => {
   if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
   const token = Netlify.env.get("TELEGRAM_BOT_TOKEN");
   const chatId = Netlify.env.get("TELEGRAM_ORDER_CHAT_ID");
@@ -46,6 +47,7 @@ export default async (request: Request) => {
   if (name.length < 2 || phone.length < 6 || !country || !city || !destination || !incoming.length) return Response.json({ error: "Missing fields" }, { status: 400 });
 
   const verified: { name: string; size: string; qty: number; price: number }[] = [];
+  const allProducts = productIndex();
   for (const item of incoming) {
     const id = clean(item.productId, 80), qty = Math.max(1, Math.min(99, Number(item.qty) || 1));
     if (bundles[id]) { verified.push({ ...bundles[id], size: "1 набір", qty }); continue; }
@@ -76,4 +78,4 @@ export default async (request: Request) => {
   return Response.json({ ok: true });
 };
 
-export const config = { path: "/.netlify/functions/order" };
+export const config: Config = { path: "/api/order" };
