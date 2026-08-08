@@ -377,6 +377,7 @@ export default function Home() {
     setToast(t.added); setTimeout(() => setToast(""), 1400);
   };
   const changeQty = (item: CartItem, delta: number) => setCart((prev) => prev.map((i) => i === item ? { ...i, qty: i.qty + delta } : i).filter((i) => i.qty > 0));
+  const changeProductQty = (productId: string, size: string, delta: number) => setCart((prev) => prev.map((item) => item.productId === productId && item.size === size ? { ...item, qty: item.qty + delta } : item).filter((item) => item.qty > 0));
   const jumpCatalog = () => document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
   const jumpResults = () => document.getElementById("catalog-results")?.scrollIntoView({ behavior: "auto", block: "start" });
   const jumpVideoLibrary = () => document.getElementById("video-library")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -397,7 +398,7 @@ export default function Home() {
     window.setTimeout(jumpVideoLibrary, 60);
   };
 
-  return <main>
+  return <main className={count > 0 ? "has-floating-cart" : ""}>
     <header className="site-header"><div className="container nav">
       <button className="brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="CleanTapi — на початок"><img src="/cleantapi-logo.png" alt="CleanTapi"/></button>
       <nav><button onClick={jumpCatalog}>{t.catalog}</button><button onClick={()=>selectCategory("sets")}>{t.sets}</button><button onClick={()=>selectCategory("videos")}>{t.videos}</button><button onClick={()=>selectCategory("training")}>{t.training}</button></nav>
@@ -427,7 +428,7 @@ export default function Home() {
       {category !== "all" && <button className="show-all" onClick={()=>selectCategory("all")}>← {t.backToAll}</button>}
       <div id="catalog-results" className="catalog-results-anchor">{loading && <p className="catalog-loading">{t.loading}</p>}{category === "training" ? <TrainingPanel t={t}/> : category === "videos" ? <div id="video-library" className="video-library-anchor"><VideoLibrary t={t} lang={lang} type={subCategory === "equipmentVideos" ? "equipment" : "chemistry"}/></div> : category === "sets" ? <BundleGrid bundles={bundles} products={products} lang={lang} t={t} onAdd={add}/> : <>
         <div className="catalog-tools"><label><span className="sr-only">{t.searchProducts}</span><input type="search" value={search} onChange={(event)=>{setSearch(event.target.value);setVisibleCount(12);setFullCatalogOpen(true)}} placeholder={t.searchProducts}/></label><p>{t.shownProducts} <strong>{Math.min(visibleProducts.length, filtered.length)}</strong> {t.ofProducts} <strong>{filtered.length}</strong> {t.productsWord}</p></div>
-        {filtered.length ? <div className="product-grid">{visibleProducts.map((p) => <ProductCard key={p.id} product={p} lang={lang} t={t} onAdd={add} onDetails={setSelectedProduct}/>)}</div> : <p className="catalog-empty">{t.noProducts}</p>}
+        {filtered.length ? <div className="product-grid">{visibleProducts.map((p) => <ProductCard key={p.id} product={p} lang={lang} t={t} cart={cart} onAdd={add} onChangeQty={changeProductQty} onDetails={setSelectedProduct}/>)}</div> : <p className="catalog-empty">{t.noProducts}</p>}
         {filtered.length > visibleProducts.length && <button className="catalog-more" type="button" onClick={()=>{if (!fullCatalogOpen) {setFullCatalogOpen(true);setVisibleCount(12)} else setVisibleCount(count=>count+12)}}>{fullCatalogOpen ? t.showMoreProducts : t.openFullCatalog}<span>↓</span></button>}
       </>}</div>
     </div></section>
@@ -444,6 +445,11 @@ export default function Home() {
     </aside></div>}
     {selectedProduct && <ProductModal product={selectedProduct} lang={lang} t={t} onClose={()=>setSelectedProduct(null)} onAdd={add}/>} 
     {orderComplete && <div className="order-success-layer" role="presentation" onMouseDown={()=>setOrderComplete(false)}><section className="order-success" role="dialog" aria-modal="true" aria-label={t.orderSuccess} onMouseDown={e=>e.stopPropagation()}><span className="success-mark">✓</span><p className="eyebrow">{t.orderSuccess}</p><h2>{t.orderSuccess}</h2><p>{t.orderSuccessText}</p><a href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(t.telegramMessage)}`} target="_blank" rel="noreferrer">{t.contactVitalii} <span>→</span></a><button type="button" onClick={()=>setOrderComplete(false)}>{t.closeSuccess}</button></section></div>}
+    {count > 0 && !cartOpen && <button className="floating-cart" type="button" onClick={()=>setCartOpen(true)} aria-label={t.cart}>
+      <span className="floating-cart-icon"><span className="cart-symbol">⌑</span><b>{count}</b></span>
+      <span className="floating-cart-copy"><strong>{count} {lang === "ua" ? (count === 1 ? "товар" : count < 5 ? "товари" : "товарів") : (count === 1 ? "товар" : count < 5 ? "товара" : "товаров")}</strong><small>{total} zł</small></span>
+      <span className="floating-cart-action">{lang === "ua" ? "Перейти до кошика" : "Перейти в корзину"} →</span>
+    </button>}
     {toast && <div className="toast">✓ {toast}</div>}
   </main>;
 }
@@ -524,12 +530,13 @@ function VideoLibrary({ t, lang, type }: { t: typeof copy.ua; lang: Language; ty
   </section>;
 }
 
-function ProductCard({ product, lang, t, onAdd, onDetails }: { product: Product; lang: Language; t: typeof copy.ua; onAdd: (p: Product, size: string) => void; onDetails:(p:Product)=>void }) {
+function ProductCard({ product, lang, t, cart, onAdd, onChangeQty, onDetails }: { product: Product; lang: Language; t: typeof copy.ua; cart: CartItem[]; onAdd: (p: Product, size: string) => void; onChangeQty:(productId:string,size:string,delta:number)=>void; onDetails:(p:Product)=>void }) {
   const [size, setSize] = useState(product.sizes[0]?.label || "1 шт.");
   const unavailable = product.status === "waiting";
   const hasBakedBackground = /\.jpe?g$/i.test(product.image) || /-official\.webp$/i.test(product.image);
   const activePrice=product.sizes.find(v=>v.label===size)?.price||product.price;
-  return <article className={`product-card ${unavailable ? "unavailable" : ""}`} onClick={()=>onDetails(product)}><div className="product-image"><img className={hasBakedBackground ? "baked-background" : "product-cutout"} src={product.image} alt={`${product.brand} ${product.name}`}/><span className={`status ${product.status}`}>{t[product.status]}</span></div><div className="product-body"><p className="brand-label">{product.brand}</p><h3>{product.name}</h3><p className="description">{product.description[lang]}</p><div className="size-row" onClick={e=>e.stopPropagation()}><span>{t.size}</span><div>{product.sizes.map((s) => <button key={s.label} className={size === s.label ? "active" : ""} onClick={() => setSize(s.label)}>{s.label}</button>)}</div></div><div className="price-line"><strong>{product.sizes.length>1?t.from:""} {activePrice} zł</strong></div><div className="product-actions"><button className="details" onClick={(e)=>{e.stopPropagation();onDetails(product)}}>{t.details}</button><button className="add-button" disabled={unavailable} onClick={(e) => {e.stopPropagation();onAdd(product,size)}}>{unavailable ? t.waiting : `+ ${t.add}`}</button></div></div></article>;
+  const cartQty=cart.find(item=>item.productId===product.id&&item.size===size)?.qty||0;
+  return <article className={`product-card ${unavailable ? "unavailable" : ""}`} onClick={()=>onDetails(product)}><div className="product-image"><img className={hasBakedBackground ? "baked-background" : "product-cutout"} src={product.image} alt={`${product.brand} ${product.name}`}/><span className={`status ${product.status}`}>{t[product.status]}</span></div><div className="product-body"><p className="brand-label">{product.brand}</p><h3>{product.name}</h3><p className="description">{product.description[lang]}</p><div className="size-row" onClick={e=>e.stopPropagation()}><span>{t.size}</span><div>{product.sizes.map((s) => <button key={s.label} className={size === s.label ? "active" : ""} onClick={() => setSize(s.label)}>{s.label}</button>)}</div></div><div className="price-line"><strong>{product.sizes.length>1?t.from:""} {activePrice} zł</strong></div><div className="product-actions"><button className="details" onClick={(e)=>{e.stopPropagation();onDetails(product)}}>{t.details}</button>{cartQty>0?<div className="card-cart-controls" onClick={e=>e.stopPropagation()}><button type="button" onClick={()=>onChangeQty(product.id,size,-1)} aria-label={lang==="ua"?"Зменшити кількість":"Уменьшить количество"}>−</button><span><small>✓ {lang==="ua"?"У кошику":"В корзине"}</small><b>{cartQty}</b></span><button type="button" onClick={()=>onChangeQty(product.id,size,1)} aria-label={lang==="ua"?"Збільшити кількість":"Увеличить количество"}>+</button></div>:<button className="add-button" disabled={unavailable} onClick={(e) => {e.stopPropagation();onAdd(product,size)}}>{unavailable ? t.waiting : `+ ${t.add}`}</button>}</div></div></article>;
 }
 
 function ProductModal({product,lang,t,onClose,onAdd}:{product:Product;lang:Language;t:typeof copy.ua;onClose:()=>void;onAdd:(p:Product,size:string)=>void}){
