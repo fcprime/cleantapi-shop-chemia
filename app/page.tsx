@@ -407,7 +407,7 @@ export default function Home() {
 
     <section className="hero"><div className="container hero-grid">
       <div className="hero-copy"><p className="eyebrow">{t.eyebrow}</p><h1>{t.hero}</h1><p className="hero-text">{t.heroText}</p><div className="hero-buttons"><button className="primary" onClick={jumpCatalog}>{t.openCatalog} <span>→</span></button><button className="secondary" onClick={() => document.getElementById("problems")?.scrollIntoView({ behavior: "smooth" })}>{t.choose} <span>→</span></button></div><div className="trust"><span>◇ {t.checked}</span><span>◌ {t.simple}</span><span>▱ {t.europe}</span></div></div>
-      <div className="hero-photo"><div className="hero-products"><img src="/products/hero-global-acid-ocean.webp" alt="Global Acid Ocean"/><img src="/products/hero-global-power-blast.webp" alt="Global Power Blast"/><img src="/products/hero-chemspec-enzyme.webp" alt="Chemspec Enzymatic Cleaner"/></div><div className="expert-stamp">✓<span>{t.checked}</span></div></div>
+      <div className="hero-photo"><div className="hero-products"><img src="/products/hero-product-1.png?v=20260808-2" alt="Global Power Blast"/><img src="/products/hero-product-2.png?v=20260808-2" alt="Chemspec Powdered Cotton Upholstery Cleaner"/><img src="/products/hero-product-3.png?v=20260808-2" alt="Global Acid Ocean"/></div><div className="expert-stamp">✓<span>{t.checked}</span></div></div>
     </div></section>
 
     <section className="shop-entry container" id="catalog"><div className="catalog-top"><div><p className="eyebrow">{t.professionalCatalog}</p><h2>{t.catalogTitle}</h2><p>{lang === "ua" ? "Оберіть потрібний розділ — покажемо товари без зайвих кроків." : "Выберите нужный раздел — покажем товары без лишних шагов."}</p></div></div>
@@ -482,15 +482,25 @@ function BundleCard({ bundle, products, lang, t, onAdd }: { bundle: Bundle; prod
     "bundle-auto": {ua:"Салон, пластик, шкіра та скло",ru:"Салон, пластик, кожа и стекло"},
   };
   const visibleItems = expanded ? bundle.items : [];
-  return <article className="bundle-card">
+  useEffect(() => {
+    if (!expanded) return;
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setExpanded(false);
+    document.addEventListener("keydown", close);
+    document.body.classList.add("modal-open");
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.body.classList.remove("modal-open");
+    };
+  }, [expanded]);
+  return <><article className="bundle-card">
     <div className="bundle-heading"><div className="bundle-kicker"><p>{lang === "ua" ? "ГОТОВИЙ КОМПЛЕКТ" : "ГОТОВЫЙ КОМПЛЕКТ"}</p>{bundle.id === "bundle-standard" && <span>{lang === "ua" ? "НАЙПОПУЛЯРНІШИЙ" : "САМЫЙ ПОПУЛЯРНЫЙ"}</span>}</div><h3>{bundle.title[lang]}</h3><small>{labels[bundle.id][lang]}</small></div>
     <div className="bundle-slider">
       {image && <img src={image} alt={`${item.name}, ${item.amount}`}/>}<button className="bundle-prev" type="button" onClick={()=>move(-1)} aria-label="Назад">‹</button><button className="bundle-next" type="button" onClick={()=>move(1)} aria-label="Далі">›</button>
       <div className="bundle-slide-caption"><strong>{item.name}</strong><span>{item.amount} × {item.qty || 1}</span></div><div className="bundle-counter">{slide + 1} / {bundle.items.length}</div>
       <div className="bundle-dots">{bundle.items.map((_,index)=><button key={index} className={index===slide?"active":""} type="button" aria-label={`${index+1}`} onClick={()=>setSlide(index)}/>)}</div>
     </div>
-    <div className="bundle-copy"><strong className="bundle-price">{bundle.price} zł</strong><p>{bundle.description[lang]}</p><div className="bundle-content"><h4>📦 {lang === "ua" ? `Склад набору · ${bundle.items.length} позицій` : `Состав набора · ${bundle.items.length} позиций`}</h4><ul>{visibleItems.map((entry,index)=><li key={`${entry.name}-${index}`}><span>{entry.name}</span><b>{entry.amount} × {entry.qty || 1}</b></li>)}</ul>{bundle.items.length > 5 && <button className="bundle-expand" type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded ? (lang === "ua" ? "Згорнути склад ↑" : "Свернуть состав ↑") : (lang === "ua" ? `Показати весь склад — ${bundle.items.length} позицій ↓` : `Показать весь состав — ${bundle.items.length} позиций ↓`)}</button>}</div><button className="bundle-add" type="button" onClick={()=>onAdd(bundleProduct,size)}>{lang === "ua" ? `Додати набір у кошик — ${bundle.price} zł` : `Добавить набор в корзину — ${bundle.price} zł`}</button></div>
-  </article>;
+    <div className="bundle-copy"><strong className="bundle-price">{bundle.price} zł</strong><p>{bundle.description[lang]}</p><button className="bundle-expand" type="button" aria-haspopup="dialog" aria-expanded={expanded} onClick={()=>setExpanded(true)}><span>📦 {lang === "ua" ? `Склад набору · ${bundle.items.length} позицій` : `Состав набора · ${bundle.items.length} позиций`}</span><b>→</b></button><button className="bundle-add" type="button" onClick={()=>onAdd(bundleProduct,size)}>{lang === "ua" ? `Додати набір у кошик — ${bundle.price} zł` : `Добавить набор в корзину — ${bundle.price} zł`}</button></div>
+  </article>{expanded && <div className="bundle-modal-layer" role="presentation" onMouseDown={(event)=>event.target===event.currentTarget&&setExpanded(false)}><section className="bundle-modal" role="dialog" aria-modal="true" aria-labelledby={`${bundle.id}-title`}><div className="bundle-modal-head"><div><p>{lang === "ua" ? "СКЛАД ГОТОВОГО НАБОРУ" : "СОСТАВ ГОТОВОГО НАБОРА"}</p><h3 id={`${bundle.id}-title`}>{bundle.title[lang]}</h3></div><button type="button" onClick={()=>setExpanded(false)} aria-label={lang === "ua" ? "Закрити" : "Закрыть"}>×</button></div><ul>{visibleItems.map((entry,index)=><li key={`${entry.name}-${index}`}><span>{entry.name}</span><b>{entry.amount} × {entry.qty || 1}</b></li>)}</ul><div className="bundle-modal-footer"><strong>{bundle.price} zł</strong><button type="button" onClick={()=>{onAdd(bundleProduct,size);setExpanded(false)}}>{lang === "ua" ? "Додати набір у кошик" : "Добавить набор в корзину"}</button></div></section></div>}</>;
 }
 
 function VideoLibrary({ t, lang, type }: { t: typeof copy.ua; lang: Language; type: "chemistry" | "equipment" }) {
