@@ -256,7 +256,7 @@ function mapProduct(row: Record<string, unknown>): Product {
   const id = String(row.id);
   const curated = curatedProducts[id];
   const ua = curated?.description.ua || String(row.description || row.short_desc || "");
-  const ru = curated?.description.ru || ua;
+  const ru = curated?.description.ru || String(row.description_ru || ua);
   const name = curated?.name || String(row.name || "Товар");
   return { id, name, brand:String(row.brand || "Професійна серія"), image:curated?.image || String(row.image_url || ""), category:String(row.category || "chemistry"), problem:inferProblems(`${name} ${ua}`), price:Math.min(...sizes.map(v=>v.price)), sizes, status:row.in_stock === false || row.in_stock === "false" ? "waiting" : "available", description:{ua,ru}, chemistryGroups:curated?.chemistryGroups || inferChemistryGroups(`${name} ${row.short_desc} ${ua}`) };
 }
@@ -360,7 +360,7 @@ export default function Home() {
   }, [cart, cartHydrated]);
 
   const filtered = useMemo(() => products.filter((p) => {
-    const sectionMatch = category === "all" || (category === "chemistry" && p.category === "chemistry") || (category === "inventory" && ["tools","accessories"].includes(p.category)) || (category === "equipment" && p.category === "equipment" && subCategory !== "windowEquipment");
+    const sectionMatch = category === "all" || (category === "chemistry" && p.category === "chemistry") || (category === "inventory" && ["tools","accessories"].includes(p.category)) || (category === "equipment" && ((subCategory === "windowEquipment" && p.category === "window-equipment") || (subCategory !== "windowEquipment" && p.category === "equipment")));
     const subMatch = category !== "chemistry" || subCategory === "all" || p.chemistryGroups.includes(subCategory);
     const searchMatch = !search.trim() || `${p.name} ${p.brand}`.toLocaleLowerCase(lang === "ua" ? "uk" : "ru").includes(search.trim().toLocaleLowerCase(lang === "ua" ? "uk" : "ru"));
     return sectionMatch && subMatch && searchMatch && (problem === "all" || problem === "unsure" || p.problem.includes(problem));
@@ -425,7 +425,7 @@ export default function Home() {
       {category === "equipment" && <div className="subcategory-panel"><span>{t.equipment}</span><div><button className={subCategory!=="windowEquipment"?"active":""} onClick={()=>setSubCategory("all")}>{t.furnitureEquipment}</button><button className={subCategory==="windowEquipment"?"active":""} onClick={()=>setSubCategory("windowEquipment")}>{t.windowEquipment}</button></div></div>}
       {category === "videos" && <div className="subcategory-panel video-tabs"><span>{t.videos}</span><div><button className={subCategory!=="equipmentVideos"?"active":""} onClick={()=>selectVideoType("chemistryVideos")}>{t.chemistryVideos}<b>↓</b></button><button className={subCategory==="equipmentVideos"?"active":""} onClick={()=>selectVideoType("equipmentVideos")}>{t.equipmentVideos}<b>↓</b></button></div></div>}
       {category !== "all" && <button className="show-all" onClick={()=>selectCategory("all")}>← {t.backToAll}</button>}
-      <div id="catalog-results" className="catalog-results-anchor">{loading && <p className="catalog-loading">{t.loading}</p>}{category === "training" ? <TrainingPanel t={t}/> : category === "videos" ? <div id="video-library" className="video-library-anchor"><VideoLibrary t={t} lang={lang} type={subCategory === "equipmentVideos" ? "equipment" : "chemistry"}/></div> : category === "sets" ? <BundleGrid bundles={bundles} products={products} lang={lang} t={t} onAdd={add}/> : category === "equipment" && subCategory === "windowEquipment" ? <div className="section-soon"><span>+</span><p>{t.sectionSoon}</p></div> : <>
+      <div id="catalog-results" className="catalog-results-anchor">{loading && <p className="catalog-loading">{t.loading}</p>}{category === "training" ? <TrainingPanel t={t}/> : category === "videos" ? <div id="video-library" className="video-library-anchor"><VideoLibrary t={t} lang={lang} type={subCategory === "equipmentVideos" ? "equipment" : "chemistry"}/></div> : category === "sets" ? <BundleGrid bundles={bundles} products={products} lang={lang} t={t} onAdd={add}/> : <>
         <div className="catalog-tools"><label><span className="sr-only">{t.searchProducts}</span><input type="search" value={search} onChange={(event)=>{setSearch(event.target.value);setVisibleCount(12);setFullCatalogOpen(true)}} placeholder={t.searchProducts}/></label><p>{t.shownProducts} <strong>{Math.min(visibleProducts.length, filtered.length)}</strong> {t.ofProducts} <strong>{filtered.length}</strong> {t.productsWord}</p></div>
         {filtered.length ? <div className="product-grid">{visibleProducts.map((p) => <ProductCard key={p.id} product={p} lang={lang} t={t} onAdd={add} onDetails={setSelectedProduct}/>)}</div> : <p className="catalog-empty">{t.noProducts}</p>}
         {filtered.length > visibleProducts.length && <button className="catalog-more" type="button" onClick={()=>{if (!fullCatalogOpen) {setFullCatalogOpen(true);setVisibleCount(12)} else setVisibleCount(count=>count+12)}}>{fullCatalogOpen ? t.showMoreProducts : t.openFullCatalog}<span>↓</span></button>}
