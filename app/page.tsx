@@ -410,133 +410,63 @@ export default function Home() {
       <div className="hero-photo"><div className="hero-products"><img src="/products/global-ocean.png" alt="Global Ocean"/><img src="/products/global-power-blast.png" alt="Global Power Blast"/><img src="/products/chemspec-enzyme.png" alt="Chemspec Enzymatic Cleaner"/></div><div className="expert-stamp">âœ“<span>{t.checked}</span></div></div>
     </div></section>
 
-    <section className="shop-entry container" id="catalog"><div className="catalog-top"><div><p className="eyebrow">{t.professionalCatalog}</p><h2>{t.catalogTitle}</h2><p>{lang === "ua" ? "ĞĞ±ĞµÑ€Ñ–Ñ‚ÑŒ Ğ¿Ğ¾Ñ‚Ñ€Ñ–Ğ±Ğ½Ğ¸Ğ¹ Ñ€Ğ¾Ğ·Ğ´Ñ–Ğ» â€” Ğ¿Ğ¾ĞºĞ°Ğ¶ĞµĞ¼Ğ¾ Ñ‚Ğ¾Ğ²Ğ°Ñ€Ğ¸ Ğ±ĞµĞ· Ğ·Ğ°Ğ¹Ğ²Ğ¸Ñ… ĞºÑ€Ğ¾ĞºÑ–Ğ²." : "Ğ’Ñ‹Ğ±ĞµÑ€Ğ¸Ñ‚Ğµ Ğ½ÑƒĞ¶Ğ½Ñ‹Ğ¹ Ñ€Ğ°Ğ·Ğ´ĞµĞ» â€” Ğ¿Ğ¾ĞºĞ°Ğ¶ĞµĞ¼ Ñ‚Ğ¾Ğ²Ğ°Ñ€Ñ‹ Ğ±ĞµĞ· Ğ»Ğ¸ÑˆĞ½Ğ¸Ñ… ÑˆĞ°Ğ³Ğ¾Ğ²."}</p></div></div>
-      <div className="catalog-directory">{([
-        {id:"chemistry",label:"chemistry"},{id:"sets",label:"starterSets"},{id:"inventory",label:"inventory"},{id:"equipment",label:"equipmentCatalog"}
-      ] as const).map(({id,label},index)=><button key={id} className={category===id?"active":""} onClick={()=>selectCategory(id)}><span>0{index+1}</span><strong>{t[label]}</strong><small>{t[`${id}Hint` as keyof typeof t]}</small><b>â†’</b></button>)}</div>
-    </section>
+    <section className="shop-entry container" id="catalog"><div className="catalog-top"><div><p className="e~{Ó»h‘éì¶»§q«^wÛÛXÚÏ^Ê
+OO›Û‘]Z[Ê›ÙXİ
+_O]ˆÛ\ÜÓ˜[YOHœ›ÙXİZ[XYÙH[YÈÛ\ÜÓ˜[YO^Ú\Ğ˜ZÙY˜XÚÙÜ›İ[™È˜˜ZÙYX˜XÚÙÜ›İ[™ˆˆœ›ÙXİXİ]İ]ŸHÜ˜Ï^Ü›ÙXİš[XYÙ_H[^Ø	Ü›ÙXİ˜œ˜[™H	Ü›ÙXİ›˜[Y_XKÏÜ[ˆÛ\ÜÓ˜[YO^Øİ]\È	Ü›ÙXİœİ]\ßXOİÜ›ÙXİœİ]\×_OÜÜ[Ù]]ˆÛ\ÜÓ˜[YOHœ›ÙXİX›ÙHÛ\ÜÓ˜[YOH˜œ˜[™[X™[Ü›ÙXİ˜œ˜[™OÜÏÜ›ÙXİ›˜[Y_OÚÏÛ\ÜÓ˜[YOH™\ØÜš\[ÛˆÜ›ÙXİ™\ØÜš\[Û–Û[™×_OÜ]ˆÛ\ÜÓ˜[YOHœÚ^™K\›İÈˆÛÛXÚÏ^ÙOO™KœİÜ›ÜYØ][ÛŠ
+_OÜ[İœÚ^™_OÜÜ[]Ü›ÙXİœÚ^™\Ë›X\
 
-    <section className="problems-wrap"><div className="problems container" id="problems"><div className="section-heading"><div><p className="eyebrow">{lang === "ua" ? "ĞŸĞ†Ğ”Ğ‘Ğ†Ğ  Ğ—Ğ ĞŸĞ ĞĞ‘Ğ›Ğ•ĞœĞĞ®" : "ĞŸĞĞ”Ğ‘ĞĞ  ĞŸĞ ĞŸĞ ĞĞ‘Ğ›Ğ•ĞœĞ•"}</p><h2>{lang === "ua" ? "ĞĞ±ĞµÑ€Ñ–Ñ‚ÑŒ Ñ‚Ğ¸Ğ¿ Ğ·Ğ°Ğ±Ñ€ÑƒĞ´Ğ½ĞµĞ½Ğ½Ñ" : "Ğ’Ñ‹Ğ±ĞµÑ€Ğ¸Ñ‚Ğµ Ñ‚Ğ¸Ğ¿ Ğ·Ğ°Ğ³Ñ€ÑĞ·Ğ½ĞµĞ½Ğ¸Ñ"}</h2><p>{t.problemText}</p></div><span>{lang === "ua" ? "2 Ñ…Ğ²Ğ¸Ğ»Ğ¸Ğ½Ğ¸ Ğ½Ğ° Ğ²Ğ¸Ğ±Ñ–Ñ€" : "2 Ğ¼Ğ¸Ğ½ÑƒÑ‚Ñ‹ Ğ½Ğ° Ğ²Ñ‹Ğ±Ğ¾Ñ€"}</span></div><div className="problem-grid">
-      {["urine","blood","grease","drinks","pets","unsure"].map((id) => <button key={id} className={problem === id ? "selected" : ""} onClick={() => selectProblem(id)}><Icon name={id}/><span>{t[id as keyof typeof t]}</span><b>â†’</b></button>)}
-    </div></div></section>
+ÊHOˆ]ÛˆÙ^O^ÜË›X™[HÛ\ÜÓ˜[YO^ÜÚ^™HOOHË›X™[È˜Xİ]™HˆˆˆŸHÛÛXÚÏ^Ê
+HOˆÙ]Ú^™JË›X™[
+_OÜË›X™[OØ]ÛŠ_OÙ]Ù]]ˆÛ\ÜÓ˜[YOHœšXÙK[[™Hİ›Û™ÏÜ›ÙXİœÚ^™\Ë›[™İŒOİ™œ›ÛNˆˆŸHØXİ]™TšXÙ_H±`Üİ›Û™ÏÙ]]ˆÛ\ÜÓ˜[YOHœ›ÙXİXXİ[ÛœÈ]ÛˆÛ\ÜÓ˜[YOH™]Z[ÈˆÛÛXÚÏ^ÊJOOÙKœİÜ›ÜYØ][ÛŠ
+NÛÛ‘]Z[Ê›ÙXİ
+__Oİ™]Z[ßOØ]Û]ÛˆÛ\ÜÓ˜[YOH˜YX]Ûˆˆ\ØX›Y^İ[˜]˜Z[X›_HÛÛXÚÏ^ÊJHOˆÙKœİÜ›ÜYØ][ÛŠ
+NÛÛY
+›ÙXİÚ^™J__Oİ[˜]˜Z[X›HÈØZ][™Èˆ
+È	İ˜YXOØ]ÛÙ]Ù]Ø\XÛOÂŸB‚™[˜İ[Ûˆ›ÙXİ[Ù[
+Ü›ÙXİ[™ËÛÛÜÙKÛYNÜ›ÙXİ”›ÙXİÛ[™Î“[™İXYÙNİ\[ÙˆÛÜKXNÛÛÛÜÙNŠ
+OO›ÚYÛÛYŠ”›ÙXİÚ^™Nœİš[™ÊOO›ÚYJ^ÂˆÛÛœİÜÚ^™KÙ]Ú^™WO]\ÙTİ]J›ÙXİœÚ^™\ÖÌOË›X™[ŒH4b4`‹ˆŠNÈÛÛœİšXÙO\›ÙXİœÚ^™\Ë™š[™
+O‹›X™[OO\Ú^™JOËœšXÙ_›ÙXİœšXÙNÈÛÛœİ[˜]˜Z[X›O\›ÙXİœİ]\ÏOOHØZ][™ÈÂˆ\ÙQY™™Xİ
 
-    <section className="catalog-section"><div className="container">
-      {category === "chemistry" && <div className="subcategory-panel"><span>{t.chemistry}</span><div>{["all","prespray","detergents","acidRinses","stainRemovers","odorNeutralizers","carChemistry"].map(id=><button key={id} className={subCategory===id?"active":""} onClick={()=>{setSubCategory(id);setVisibleCount(12)}}>{t[id as keyof typeof t]}</button>)}</div></div>}
-      {category === "equipment" && <div className="subcategory-panel"><span>{t.equipment}</span><div><button className={subCategory!=="windowEquipment"?"active":""} onClick={()=>setSubCategory("all")}>{t.furnitureEquipment}</button><button className={subCategory==="windowEquipment"?"active":""} onClick={()=>setSubCategory("windowEquipment")}>{t.windowEquipment}</button></div></div>}
-      {category === "videos" && <div className="subcategory-panel video-tabs"><span>{t.videos}</span><div><button className={subCategory!=="equipmentVideos"?"active":""} onClick={()=>selectVideoType("chemistryVideos")}>{t.chemistryVideos}<b>â†“</b></button><button className={subCategory==="equipmentVideos"?"active":""} onClick={()=>selectVideoType("equipmentVideos")}>{t.equipmentVideos}<b>â†“</b></button></div></div>}
-      {category !== "all" && <button className="show-all" onClick={()=>selectCategory("all")}>â† {t.backToAll}</button>}
-      <div id="catalog-results" className="catalog-results-anchor">{loading && <p className="catalog-loading">{t.loading}</p>}{category === "training" ? <TrainingPanel t={t}/> : category === "videos" ? <div id="video-library" className="video-library-anchor"><VideoLibrary t={t} lang={lang} type={subCategory === "equipmentVideos" ? "equipment" : "chemistry"}/></div> : category === "sets" ? <BundleGrid bundles={bundles} products={products} lang={lang} t={t} onAdd={add}/> : <>
-        <div className="catalog-tools"><label><span className="sr-only">{t.searchProducts}</span><input type="search" value={search} onChange={(event)=>{setSearch(event.target.value);setVisibleCount(12);setFullCatalogOpen(true)}} placeholder={t.searchProducts}/></label><p>{t.shownProducts} <strong>{Math.min(visibleProducts.length, filtered.length)}</strong> {t.ofProducts} <strong>{filtered.length}</strong> {t.productsWord}</p></div>
-        {filtered.length ? <div className="product-grid">{visibleProducts.map((p) => <ProductCard key={p.id} product={p} lang={lang} t={t} onAdd={add} onDetails={setSelectedProduct}/>)}</div> : <p className="catalog-empty">{t.noProducts}</p>}
-        {filtered.length > visibleProducts.length && <button className="catalog-more" type="button" onClick={()=>{if (!fullCatalogOpen) {setFullCatalogOpen(true);setVisibleCount(12)} else setVisibleCount(count=>count+12)}}>{fullCatalogOpen ? t.showMoreProducts : t.openFullCatalog}<span>â†“</span></button>}
-      </>}</div>
-    </div></section>
 
-    <section className="knowledge-band"><div className="container knowledge-grid"><div><p className="eyebrow">{lang === "ua" ? "Ğ”ĞĞ¡Ğ’Ğ†Ğ” ĞœĞĞ™Ğ¡Ğ¢Ğ Ğ" : "ĞĞŸĞ«Ğ¢ ĞœĞĞ¡Ğ¢Ğ•Ğ Ğ"}</p><h2>{lang === "ua" ? "ĞĞµ Ğ²Ğ¿ĞµĞ²Ğ½ĞµĞ½Ñ–, ÑĞºĞ¸Ğ¹ Ğ·Ğ°ÑÑ–Ğ± Ğ¿Ñ–Ğ´Ñ–Ğ¹Ğ´Ğµ?" : "ĞĞµ ÑƒĞ²ĞµÑ€ĞµĞ½Ñ‹, ĞºĞ°ĞºĞ¾Ğµ ÑÑ€ĞµĞ´ÑÑ‚Ğ²Ğ¾ Ğ¿Ğ¾Ğ´Ğ¾Ğ¹Ğ´ĞµÑ‚?"}</h2><p>{lang === "ua" ? "ĞŸĞ¾Ğ´Ğ¸Ğ²Ñ–Ñ‚ÑŒÑÑ ĞºĞ¾Ñ€Ğ¾Ñ‚ĞºÑ– Ğ¿Ğ¾ÑÑĞ½ĞµĞ½Ğ½Ñ Ğ°Ğ±Ğ¾ Ğ¿ĞµÑ€ĞµĞ¹Ğ´Ñ–Ñ‚ÑŒ Ğ´Ğ¾ Ğ½Ğ°Ğ²Ñ‡Ğ°Ğ½Ğ½Ñ â€” Ğ±ĞµĞ· ÑĞºĞ»Ğ°Ğ´Ğ½Ğ¸Ñ… Ñ‚ĞµÑ€Ğ¼Ñ–Ğ½Ñ–Ğ²." : "ĞŸĞ¾ÑĞ¼Ğ¾Ñ‚Ñ€Ğ¸Ñ‚Ğµ ĞºĞ¾Ñ€Ğ¾Ñ‚ĞºĞ¸Ğµ Ğ¾Ğ±ÑŠÑÑĞ½ĞµĞ½Ğ¸Ñ Ğ¸Ğ»Ğ¸ Ğ¿ĞµÑ€ĞµĞ¹Ğ´Ğ¸Ñ‚Ğµ Ğº Ğ¾Ğ±ÑƒÑ‡ĞµĞ½Ğ¸Ñ â€” Ğ±ĞµĞ· ÑĞ»Ğ¾Ğ¶Ğ½Ñ‹Ñ… Ñ‚ĞµÑ€Ğ¼Ğ¸Ğ½Ğ¾Ğ²."}</p></div><div><button onClick={()=>selectCategory("videos")}>{t.videos}<span>â†’</span></button><button onClick={()=>selectCategory("training")}>{t.training}<span>â†’</span></button></div></div></section>
+OOØÛÛœİÙ^OJN’Ù^X›Ø\™]™[
+OO™KšÙ^OOOH‘\ØØ\H‰‰›ÛÛÜÙJ
+NÙØİ[Y[˜Y]™[\İ[™\ŠšÙ^YİÛˆ‹Ù^JNÜ™]\›Š
+OO™Øİ[Y[œ™[[İ™Q]™[\İ[™\ŠšÙ^YİÛˆ‹Ù^J_KÛÛÛÜÙWJNÂˆ™]\›ˆ]ˆÛ\ÜÓ˜[YOHœ›ÙXİ[[Ù[[^Y\ˆˆÛ“[İ\ÙQİÛ^ÛÛÛÜÙ_OÙXİ[ÛˆÛ\ÜÓ˜[YOHœ›ÙXİ[[Ù[ˆ›ÛOH™X[ÙÈˆ\šXK[[Ù[HYHˆ\šXK[X™[^Ü›ÙXİ›˜[Y_HÛ“[İ\ÙQİÛ^ÙOO™KœİÜ›ÜYØ][ÛŠ
+_O]ÛˆÛ\ÜÓ˜[YOH›[Ù[XÛÜÙHˆÛÛXÚÏ^ÛÛÛÜÙ_O°åÏØ]Û]ˆÛ\ÜÓ˜[YOH›[Ù[[YYXH[YÈÜ˜Ï^Ü›ÙXİš[XYÙ_H[^Ø	Ü›ÙXİ˜œ˜[™H	Ü›ÙXİ›˜[Y_XKÏÜ[ˆÛ\ÜÓ˜[YO^Øİ]\È	Ü›ÙXİœİ]\ßXOİÜ›ÙXİœİ]\×_OÜÜ[Ù]]ˆÛ\ÜÓ˜[YOH›[Ù[XÛÜHÛ\ÜÓ˜[YOH˜œ˜[™[X™[Ü›ÙXİ˜œ˜[™OÜÜ›ÙXİ›˜[Y_OÚÛ\ÜÓ˜[YOH›[Ù[ZÚXÚÙ\ˆİ™[\ØÜš\[ÛŸOÜÛ\ÜÓ˜[YOH›[Ù[Y\ØÜš\[ÛˆÜ›ÙXİ™\ØÜš\[Û–Û[™×_OÜ]ˆÛ\ÜÓ˜[YOH›[Ù[\Ú^™\ÈÜ[İœÚ^™_OÜÜ[]Ü›ÙXİœÚ^™\Ë›X\
+O]ÛˆÙ^O^İ‹›X™[HÛ\ÜÓ˜[YO^ÜÚ^™OOO]‹›X™[È˜Xİ]™HˆˆŸHÛÛXÚÏ^Ê
+OOœÙ]Ú^™J‹›X™[
+_Oİ‹›X™[H0­Èİ‹œšXÙ_H±`Ø]ÛŠ_OÙ]Ù]İ›Û™ÈÛ\ÜÓ˜[YOH›[Ù[\šXÙHÜšXÙ_H±`Üİ›Û™Ï]ÛˆÛ\ÜÓ˜[YOH›[Ù[XYˆ\ØX›Y^İ[˜]˜Z[X›_HÛÛXÚÏ^Ê
+OO›ÛY
+›ÙXİÚ^™J_Oİ[˜]˜Z[X›OİØZ][™Î˜
+È	İ˜YXOØ]ÛÙ]ÜÙXİ[ÛÙ]‚ŸB‚™[˜İ[ÛˆÚXÚÛİ]›Ü›JÛ[™Ë][\Ëİ[Û˜XÚËÛ”İXØÙ\ÜßNÛ[™Î“[™İXYÙNİ\[ÙˆÛÜKXNÚ][\Î“Ü™\’][V×Nİİ[›[X™\ÛÛ˜XÚÎŠ
+OO›ÚYÛÛ”İXØÙ\ÜÎŠ
+OO›ÚYJ^ÂˆÛÛœİÛ™PÛÙ\ÈHÂˆØÛÙNˆŠÍ‹X™[ˆ”
+ÍŸKØÛÙNˆŠÌÌÈ‹X™[ˆ‘”ˆ
+ÌÌÈŸKØÛÙNˆŠÌÎ‹X™[ˆ•PH
+ÌÎŸKØÛÙNˆŠÍH‹X™[ˆ‘H
+ÍHŸKØÛÙNˆŠÍŒ‹X™[ˆÖˆ
+ÍŒŸKØÛÙNˆŠÍŒH‹X™[ˆ”ÒÈ
+ÍŒHŸKØÛÙNˆŠÍ‹X™[ˆ•RÈ
+ÍŸKØÛÙNˆŠÌÍLÈ‹X™[ˆ’QH
+ÌÍLÈŸKØÛÙNˆŠÌÎH‹X™[ˆ’U
+ÌÎHŸKØÛÙNˆŠÌÍ‹X™[ˆ‘TÈ
+ÌÍŸKØÛÙNˆŠÌÌH‹X™[ˆ““
+ÌÌHŸKØÛÙNˆŠÌÌˆ‹X™[ˆ‘H
+ÌÌˆŸKØÛÙNˆŠÌÍÌ‹X™[ˆ“
+ÌÍÌŸKØÛÙNˆŠÌÍÌH‹X™[ˆ“ˆ
+ÌÍÌHŸKØÛÙNˆŠÌÍÌˆ‹X™[ˆ‘QH
+ÌÍÌˆŸKØÛÙNˆŠÌH‹X™[ˆ•TËĞĞH
+ÌHŸKˆNÂˆÛÛœİÜÛ™PÛÙKÙ]Û™PÛÙWO]\ÙTİ]JŠÍŠNÂˆÛÛœİÙ›Ü›KÙ]›Ü›WO]\ÙTİ]JÛ˜[YNˆˆ‹Û™Nˆˆ‹[YÜ˜[Nˆˆ‹[]™\NˆœÜİ‹Ûİ[Nˆ”ÛÚØH‹Ú]Nˆˆ‹\İ[˜][Ûˆˆ‹ÙXœÚ]NˆˆŸJNÂˆÛÛœİÜİX›Z][™ËÙ]İX›Z][™×O]\ÙTİ]J˜[ÙJNÈÛÛœİÙ\œ›Ü‹Ù]\œ›Ü—O]\ÙTİ]JˆŠNÂˆÛÛœİ\]OJÙ^NšÙ^[Ùˆ\[Ùˆ›Ü›K˜[YNœİš[™ÊOOœÙ]›Ü›Jİ\œ™[OŠË‹‹˜İ\œ™[ÚÙ^WN˜[Y_JJNÂˆÛÛœİ›Ü›X]Û™OJ˜[YNœİš[™ÊOO˜[YKœ™\XÙJ×ÙËˆŠKœÛXÙJLŠKœ™\XÙJÊÌßJJÏW
+KÙË‰HŠNÂˆÛÛœİİX›Z]X\Ş[˜ÊN”™XXİ‘›Ü›Q]™[
+OOÙKœ™]™[Y˜][
 
-    <footer><div className="container footer-grid"><div><strong>{t.followMaster}</strong><p>{t.contactsText}</p></div><SocialLinks/><p className="copyright">Â© 2026</p></div></footer>
-
-    {cartOpen && <div className="drawer-layer" role="presentation" onMouseDown={() => setCartOpen(false)}><aside className="cart-drawer" role="dialog" aria-modal="true" aria-label={t.cartTitle} onMouseDown={(e) => e.stopPropagation()}><div className="drawer-head"><div><h2>{checkoutOpen ? t.checkoutTitle : t.cartTitle}</h2><p>{checkoutOpen ? t.checkout : t.cartHint}</p></div><button className="close" onClick={() => setCartOpen(false)} aria-label={t.close}>Ã—</button></div>
-      {checkoutOpen && cart.length > 0 ? <CheckoutForm lang={lang} t={t} items={cart.map((item): OrderItem | null => { const product=orderProducts.find(p=>p.id===item.productId); if(!product)return null; const unitPrice=product.sizes.find(v=>v.label===item.size)?.price||product.price; return {...item,name:product.name,unitPrice}; }).filter((item): item is OrderItem => item !== null)} total={total} onBack={()=>setCheckoutOpen(false)} onSuccess={()=>{setCart([]);setCheckoutOpen(false);setCartOpen(false);setOrderComplete(true);}}/> : <>
-      <div className="cart-items">{cart.length === 0 ? <div className="empty-cart"><span>âŒ‘</span><p>{t.cartEmpty}</p><button onClick={() => setCartOpen(false)}>{t.continue}</button></div> : cart.map((item) => { const p = orderProducts.find((x) => x.id === item.productId); if(!p)return null; const unit=p.sizes.find(v=>v.label===item.size)?.price||p.price; return <div className="cart-item" key={`${item.productId}-${item.size}`}><img src={p.image} alt={p.name}/><div><strong>{p.name}</strong><small>{item.size}</small><span>{unit} zÅ‚</span></div><div className="qty"><button onClick={() => changeQty(item,-1)}>âˆ’</button><b>{item.qty}</b><button onClick={() => changeQty(item,1)}>+</button></div></div>; })}</div>
-      {cart.length > 0 && <div className="cart-summary"><div><span>{t.total}</span><strong>{total} zÅ‚</strong></div><button className="checkout-button" onClick={() => setCheckoutOpen(true)}>{t.checkout} <span>â†’</span></button><button className="continue secondary-cart" onClick={() => setCartOpen(false)}>{t.continue}</button><button className="clear" onClick={() => setCart([])}>{t.clear}</button></div>}
-      </>}
-    </aside></div>}
-    {selectedProduct && <ProductModal product={selectedProduct} lang={lang} t={t} onClose={()=>setSelectedProduct(null)} onAdd={add}/>} 
-    {orderComplete && <div className="order-success-layer" role="presentation" onMouseDown={()=>setOrderComplete(false)}><section className="order-success" role="dialog" aria-modal="true" aria-label={t.orderSuccess} onMouseDown={e=>e.stopPropagation()}><span className="success-mark">âœ“</span><p className="eyebrow">{t.orderSuccess}</p><h2>{t.orderSuccess}</h2><p>{t.orderSuccessText}</p><a href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(t.telegramMessage)}`} target="_blank" rel="noreferrer">{t.contactVitalii} <span>â†’</span></a><button type="button" onClick={()=>setOrderComplete(false)}>{t.closeSuccess}</button></section></div>}
-    {toast && <div className="toast">âœ“ {toast}</div>}
-  </main>;
-}
-
-function SocialLinks() {
-  const links = [
-    { label: "Instagram", short: "IG", href: "https://www.instagram.com/vitalii_himchistka/" },
-    { label: "YouTube", short: "YT", href: "https://www.youtube.com/@vitalii_himchistka" },
-    { label: "TikTok", short: "TT", href: "https://www.tiktok.com/@vitalii_himchistka" },
-    { label: "Telegram", short: "TG", href: "https://t.me/Vitaliiivanovich" },
-  ];
-  return <div className="social-links">{links.map(link => <a key={link.label} href={link.href} target="_blank" rel="noreferrer" aria-label={link.label}><span>{link.short}</span>{link.label}</a>)}</div>;
-}
-
-function TrainingPanel({ t }: { t: typeof copy.ua }) {
-  return <section className="training-panel"><div><p className="eyebrow">{t.training}</p><h3>{t.trainingTitle}</h3><p>{t.trainingText}</p><a href="https://norov-kurs.pl" target="_blank" rel="noreferrer">{t.openCourse} <span>â†’</span></a></div><div className="training-social"><strong>{t.followMaster}</strong><SocialLinks/></div></section>;
-}
-
-function BundleGrid({ bundles, products, lang, t, onAdd }: { bundles: Bundle[]; products: Product[]; lang: Language; t: typeof copy.ua; onAdd: (product: Product, size: string) => void }) {
-  return <div className="bundle-grid">{bundles.map(bundle => <BundleCard key={bundle.id} bundle={bundle} products={products} lang={lang} t={t} onAdd={onAdd}/>)}</div>;
-}
-
-function BundleCard({ bundle, products, lang, t, onAdd }: { bundle: Bundle; products: Product[]; lang: Language; t: typeof copy.ua; onAdd: (product: Product, size: string) => void }) {
-  const [slide, setSlide] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-  const item = bundle.items[slide];
-  const sourceProduct = products.find(product => product.id === item.productId);
-  const image = sourceProduct?.image || "";
-  const size = lang === "ua" ? "1 Ğ½Ğ°Ğ±Ñ–Ñ€" : "1 Ğ½Ğ°Ğ±Ğ¾Ñ€";
-  const bundleProduct: Product = { id:bundle.id, name:bundle.title[lang], brand:lang === "ua" ? "Ğ“Ğ¾Ñ‚Ğ¾Ğ²Ğ¸Ğ¹ Ğ½Ğ°Ğ±Ñ–Ñ€" : "Ğ“Ğ¾Ñ‚Ğ¾Ğ²Ñ‹Ğ¹ Ğ½Ğ°Ğ±Ğ¾Ñ€", image:products.find(product=>product.id===bundle.items[0].productId)?.image || "", category:"sets", problem:[], price:bundle.price, sizes:[{label:size,price:bundle.price}], status:"available", description:bundle.description, chemistryGroups:[] };
-  const move = (delta:number) => setSlide(current => (current + delta + bundle.items.length) % bundle.items.length);
-  const labels: Record<string,{ua:string;ru:string}> = {
-    "bundle-start": {ua:"Ğ”Ğ»Ñ Ğ¿Ğ¾Ñ‡Ğ°Ñ‚ĞºÑƒ Ñ€Ğ¾Ğ±Ğ¾Ñ‚Ğ¸ Â· Ğ½Ğ° 8â€“10 Ğ´Ğ¸Ğ²Ğ°Ğ½Ñ–Ğ²",ru:"Ğ”Ğ»Ñ Ğ½Ğ°Ñ‡Ğ°Ğ»Ğ° Ñ€Ğ°Ğ±Ğ¾Ñ‚Ñ‹ Â· Ğ½Ğ° 8â€“10 Ğ´Ğ¸Ğ²Ğ°Ğ½Ğ¾Ğ²"},
-    "bundle-standard": {ua:"ĞĞ¿Ñ‚Ğ¸Ğ¼Ğ°Ğ»ÑŒĞ½Ğ¸Ğ¹ Ğ²Ğ¸Ğ±Ñ–Ñ€ Â· Ğ½Ğ° 35â€“45 Ğ´Ğ¸Ğ²Ğ°Ğ½Ñ–Ğ²",ru:"ĞĞ¿Ñ‚Ğ¸Ğ¼Ğ°Ğ»ÑŒĞ½Ñ‹Ğ¹ Ğ²Ñ‹Ğ±Ğ¾Ñ€ Â· Ğ½Ğ° 35â€“45 Ğ´Ğ¸Ğ²Ğ°Ğ½Ğ¾Ğ²"},
-    "bundle-expert": {ua:"Ğ Ğ¾Ğ·ÑˆĞ¸Ñ€ĞµĞ½Ğ¸Ğ¹ Ğ¿Ñ€Ğ¾Ñ„ĞµÑÑ–Ğ¹Ğ½Ğ¸Ğ¹ ĞºĞ¾Ğ¼Ğ¿Ğ»ĞµĞºÑ‚",ru:"Ğ Ğ°ÑÑˆĞ¸Ñ€ĞµĞ½Ğ½Ñ‹Ğ¹ Ğ¿Ñ€Ğ¾Ñ„ĞµÑÑĞ¸Ğ¾Ğ½Ğ°Ğ»ÑŒĞ½Ñ‹Ğ¹ ĞºĞ¾Ğ¼Ğ¿Ğ»ĞµĞºÑ‚"},
-    "bundle-auto": {ua:"Ğ¡Ğ°Ğ»Ğ¾Ğ½, Ğ¿Ğ»Ğ°ÑÑ‚Ğ¸Ğº, ÑˆĞºÑ–Ñ€Ğ° Ñ‚Ğ° ÑĞºĞ»Ğ¾",ru:"Ğ¡Ğ°Ğ»Ğ¾Ğ½, Ğ¿Ğ»Ğ°ÑÑ‚Ğ¸Ğº, ĞºĞ¾Ğ¶Ğ° Ğ¸ ÑÑ‚ĞµĞºĞ»Ğ¾"},
-  };
-  const visibleItems = expanded ? bundle.items : bundle.items.slice(0,5);
-  return <article className="bundle-card">
-    <div className="bundle-heading"><div className="bundle-kicker"><p>{lang === "ua" ? "Ğ“ĞĞ¢ĞĞ’Ğ˜Ğ™ ĞšĞĞœĞŸĞ›Ğ•ĞšĞ¢" : "Ğ“ĞĞ¢ĞĞ’Ğ«Ğ™ ĞšĞĞœĞŸĞ›Ğ•ĞšĞ¢"}</p>{bundle.id === "bundle-standard" && <span>{lang === "ua" ? "ĞĞĞ™ĞŸĞĞŸĞ£Ğ›Ğ¯Ğ ĞĞ†Ğ¨Ğ˜Ğ™" : "Ğ¡ĞĞœĞ«Ğ™ ĞŸĞĞŸĞ£Ğ›Ğ¯Ğ ĞĞ«Ğ™"}</span>}</div><h3>{bundle.title[lang]}</h3><small>{labels[bundle.id][lang]}</small></div>
-    <div className="bundle-slider">
-      {image && <img src={image} alt={`${item.name}, ${item.amount}`}/>}<button className="bundle-prev" type="button" onClick={()=>move(-1)} aria-label="ĞĞ°Ğ·Ğ°Ğ´">â€¹</button><button className="bundle-next" type="button" onClick={()=>move(1)} aria-label="Ğ”Ğ°Ğ»Ñ–">â€º</button>
-      <div className="bundle-slide-caption"><strong>{item.name}</strong><span>{item.amount} Ã— {item.qty || 1}</span></div><div className="bundle-counter">{slide + 1} / {bundle.items.length}</div>
-      <div className="bundle-dots">{bundle.items.map((_,index)=><button key={index} className={index===slide?"active":""} type="button" aria-label={`${index+1}`} onClick={()=>setSlide(index)}/>)}</div>
-    </div>
-    <div className="bundle-copy"><strong className="bundle-price">{bundle.price} zÅ‚</strong><p>{bundle.description[lang]}</p><div className="bundle-content"><h4>ğŸ“¦ {lang === "ua" ? `Ğ¡ĞºĞ»Ğ°Ğ´ Ğ½Ğ°Ğ±Ğ¾Ñ€Ñƒ Â· ${bundle.items.length} Ğ¿Ğ¾Ğ·Ğ¸Ñ†Ñ–Ğ¹` : `Ğ¡Ğ¾ÑÑ‚Ğ°Ğ² Ğ½Ğ°Ğ±Ğ¾Ñ€Ğ° Â· ${bundle.items.length} Ğ¿Ğ¾Ğ·Ğ¸Ñ†Ğ¸Ğ¹`}</h4><ul>{visibleItems.map((entry,index)=><li key={`${entry.name}-${index}`}><span>{entry.name}</span><b>{entry.amount} Ã— {entry.qty || 1}</b></li>)}</ul>{bundle.items.length > 5 && <button className="bundle-expand" type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded ? (lang === "ua" ? "Ğ—Ğ³Ğ¾Ñ€Ğ½ÑƒÑ‚Ğ¸ ÑĞºĞ»Ğ°Ğ´ â†‘" : "Ğ¡Ğ²ĞµÑ€Ğ½ÑƒÑ‚ÑŒ ÑĞ¾ÑÑ‚Ğ°Ğ² â†‘") : (lang === "ua" ? `ĞŸĞ¾ĞºĞ°Ğ·Ğ°Ñ‚Ğ¸ Ğ²ĞµÑÑŒ ÑĞºĞ»Ğ°Ğ´ â€” ${bundle.items.length} Ğ¿Ğ¾Ğ·Ğ¸Ñ†Ñ–Ğ¹ â†“` : `ĞŸĞ¾ĞºĞ°Ğ·Ğ°Ñ‚ÑŒ Ğ²ĞµÑÑŒ ÑĞ¾ÑÑ‚Ğ°Ğ² â€” ${bundle.items.length} Ğ¿Ğ¾Ğ·Ğ¸Ñ†Ğ¸Ğ¹ â†“`)}</button>}</div><button className="bundle-add" type="button" onClick={()=>onAdd(bundleProduct,size)}>{lang === "ua" ? `Ğ”Ğ¾Ğ´Ğ°Ñ‚Ğ¸ Ğ½Ğ°Ğ±Ñ–Ñ€ Ñƒ ĞºĞ¾ÑˆĞ¸Ğº â€” ${bundle.price} zÅ‚` : `Ğ”Ğ¾Ğ±Ğ°Ğ²Ğ¸Ñ‚ÑŒ Ğ½Ğ°Ğ±Ğ¾Ñ€ Ğ² ĞºĞ¾Ñ€Ğ·Ğ¸Ğ½Ñƒ â€” ${bundle.price} zÅ‚`}</button></div>
-  </article>;
-}
-
-function VideoLibrary({ t, lang, type }: { t: typeof copy.ua; lang: Language; type: "chemistry" | "equipment" }) {
-  const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
-  const title = type === "chemistry" ? t.chemistryVideos : t.equipmentVideos;
-  const description = type === "chemistry" ? t.videoChemistryText : t.videoEquipmentText;
-  const visibleVideos = videoItems.filter(video => video.type === type);
-  useEffect(() => {
-    if (!activeVideo) return;
-    const close = (event: KeyboardEvent) => event.key === "Escape" && setActiveVideo(null);
-    document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close);
-  }, [activeVideo]);
-  return <section className="video-library">
-    <div className="video-intro"><div><p className="eyebrow">{t.videoLibrary}</p><h3>{t.videoTitle}</h3><p>{t.videoText}</p></div><a href="https://www.youtube.com/@vitalii_himchistka" target="_blank" rel="noreferrer">{t.openYoutube} <span>â†—</span></a></div>
-    <div className="video-topic"><span>01</span><div><strong>{title}</strong><p>{description}</p></div></div>
-    <div className="video-grid">
-      {visibleVideos.map(video => <article className="video-card" key={video.id}><button className="video-card-media" type="button" onClick={()=>setActiveVideo(video)} aria-label={`${t.watchVideo}: ${video.title[lang]}`}><img src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`} alt=""/><span>â–¶</span></button><div><p>{type === "equipment" ? t.equipmentVideos : t.chemistryVideos}</p><h4>{video.title[lang]}</h4><button type="button" onClick={()=>setActiveVideo(video)}>{t.watchVideo} <span>â†’</span></button></div></article>)}
-    </div>
-    {activeVideo && <div className="video-modal-layer" role="presentation" onMouseDown={()=>setActiveVideo(null)}><section className="video-modal" role="dialog" aria-modal="true" aria-label={activeVideo.title[lang]} onMouseDown={event=>event.stopPropagation()}><div className="video-modal-head"><h3>{activeVideo.title[lang]}</h3><button type="button" onClick={()=>setActiveVideo(null)} aria-label={t.closeVideo}>Ã—</button></div><div className="video-frame"><iframe src={`https://www.youtube-nocookie.com/embed/${activeVideo.id}?autoplay=1&rel=0`} title={activeVideo.title[lang]} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen/></div></section></div>}
-  </section>;
-}
-
-function ProductCard({ product, lang, t, onAdd, onDetails }: { product: Product; lang: Language; t: typeof copy.ua; onAdd: (p: Product, size: string) => void; onDetails:(p:Product)=>void }) {
-  const [size, setSize] = useState(product.sizes[0]?.label || "1 ÑˆÑ‚.");
-  const unavailable = product.status === "waiting";
-  const hasBakedBackground = /\.jpe?g$/i.test(product.image) || /-official\.webp$/i.test(product.image);
-  const activePrice=product.sizes.find(v=>v.label===size)?.price||product.price;
-  return <article className={`product-card ${unavailable ? "unavailable" : ""}`} onClick={()=>onDetails(product)}><div className="product-image"><img className={hasBakedBackground ? "baked-background" : "product-cutout"} src={product.image} alt={`${product.brand} ${product.name}`}/><span className={`status ${product.status}`}>{t[product.status]}</span></div><div className="product-body"><p className="brand-label">{product.brand}</p><h3>{product.name}</h3><p className="description">{product.description[lang]}</p><div className="size-row" onClick={e=>e.stopPropagation()}><span>{t.size}</span><div>{product.sizes.map((s) => <button key={s.label} className={size === s.label ? "active" : ""} onClick={() => setSize(s.label)}>{s.label}</button>)}</div></div><div className="price-line"><strong>{product.sizes.length>1?t.from:""} {activePrice} zÅ‚</strong></div><div className="product-actions"><button className="details" onClick={(e)=>{e.stopPropagation();onDetails(product)}}>{t.details}</button><button className="add-button" disabled={unavailable} onClick={(e) => {e.stopPropagation();onAdd(product,size)}}>{unavailable ? t.waiting : `+ ${t.add}`}</button></div></div></article>;
-}
-
-function ProductModal({product,lang,t,onClose,onAdd}:{product:Product;lang:Language;t:typeof copy.ua;onClose:()=>void;onAdd:(p:Product,size:string)=>void}){
- const [size,setSize]=useState(product.sizes[0]?.label||"1 ÑˆÑ‚."); const price=product.sizes.find(v=>v.label===size)?.price||product.price; const unavailable=product.status==="waiting";
- useEffect(()=>{const key=(e:KeyboardEvent)=>e.key==="Escape"&&onClose();document.addEventListener("keydown",key);return()=>document.removeEventListener("keydown",key)},[onClose]);
- return <div className="product-modal-layer" onMouseDown={onClose}><section className="product-modal" role="dialog" aria-modal="true" aria-label={product.name} onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}>Ã—</button><div className="modal-media"><img src={product.image} alt={`${product.brand} ${product.name}`}/><span className={`status ${product.status}`}>{t[product.status]}</span></div><div className="modal-copy"><p className="brand-label">{product.brand}</p><h2>{product.name}</h2><p className="modal-kicker">{t.fullDescription}</p><p className="modal-description">{product.description[lang]}</p><div className="modal-sizes"><span>{t.size}</span><div>{product.sizes.map(v=><button key={v.label} className={size===v.label?"active":""} onClick={()=>setSize(v.label)}>{v.label} Â· {v.price} zÅ‚</button>)}</div></div><strong className="modal-price">{price} zÅ‚</strong><button className="modal-add" disabled={unavailable} onClick={()=>onAdd(product,size)}>{unavailable?t.waiting:`+ ${t.add}`}</button></div></section></div>
-}
-
-function CheckoutForm({lang,t,items,total,onBack,onSuccess}:{lang:Language;t:typeof copy.ua;items:OrderItem[];total:number;onBack:()=>void;onSuccess:()=>void}){
-  const phoneCodes = [
-    {code:"+48",label:"PL +48"},{code:"+33",label:"FR +33"},{code:"+380",label:"UA +380"},{code:"+49",label:"DE +49"},{code:"+420",label:"CZ +420"},{code:"+421",label:"SK +421"},{code:"+44",label:"UK +44"},{code:"+353",label:"IE +353"},{code:"+39",label:"IT +39"},{code:"+34",label:"ES +34"},{code:"+31",label:"NL +31"},{code:"+32",label:"BE +32"},{code:"+370",label:"LT +370"},{code:"+371",label:"LV +371"},{code:"+372",label:"EE +372"},{code:"+1",label:"US/CA +1"},
-  ];
-  const [phoneCode,setPhoneCode]=useState("+48");
-  const [form,setForm]=useState({name:"",phone:"",telegram:"",delivery:"post",country:"Polska",city:"",destination:"",website:""});
-  const [submitting,setSubmitting]=useState(false); const [error,setError]=useState("");
-  const update=(key:keyof typeof form,value:string)=>setForm(current=>({...current,[key]:value}));
-  const formatPhone=(value:string)=>value.replace(/\D/g,"").slice(0,12).replace(/(\d{3})(?=\d)/g,"$1 ");
-  const submit=async(e:React.FormEvent)=>{e.preventDefault();setError("");if(!form.name.trim()||form.phone.replace(/\D/g,"").length<6||!form.country.trim()||!form.city.trim()||!form.destination.trim()){setError(t.required);return;}setSubmitting(true);try{const response=await fetch("/api/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,phone:`${phoneCode} ${form.phone}`.trim(),language:lang,items})});if(!response.ok)throw new Error("order");onSuccess();}catch{setError(t.orderError);}finally{setSubmitting(false);}};
-  return <form className="checkout-form" onSubmit={submit}><div className="checkout-total"><span>{t.total}</span><strong>{total} zÅ‚</strong></div><label>{t.name}<input value={form.name} onChange={e=>update("name",e.target.value)} autoComplete="name" maxLength={100} required/></label><label>{t.phone}<div className="phone-input"><select aria-label={t.country} value={phoneCode} onChange={e=>setPhoneCode(e.target.value)}>{phoneCodes.map(item=><option key={item.code} value={item.code}>{item.label}</option>)}</select><input type="tel" inputMode="numeric" value={form.phone} onChange={e=>update("phone",formatPhone(e.target.value))} autoComplete="tel-national" placeholder="501 234 567" maxLength={15} required/></div></label><label>{t.telegram}<input value={form.telegram} onChange={e=>update("telegram",e.target.value)} placeholder="@username" maxLength={80}/></label><label>{t.delivery}<select value={form.delivery} onChange={e=>update("delivery",e.target.value)}><option value="post">{t.post}</option><option value="courier">{t.courier}</option><option value="pickup">{t.pickup}</option><option value="agree">{t.agreeDelivery}</option></select></label><div className="checkout-grid"><label>{t.country}<input value={form.country} onChange={e=>update("country",e.target.value)} autoComplete="country-name" maxLength={80} required/></label><label>{t.city}<input value={form.city} onChange={e=>update("city",e.target.value)} autoComplete="address-level2" maxLength={100} required/></label></div><label>{t.destination}<input value={form.destination} onChange={e=>update("destination",e.target.value)} autoComplete="street-address" maxLength={160} required/></label><label className="website-field" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={form.website} onChange={e=>update("website",e.target.value)}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<button className="submit-order" type="submit" disabled={submitting}>{submitting?t.sending:`${t.sendOrder} â†’`}</button><button className="back-cart" type="button" onClick={onBack}>â† {t.backToCart}</button></form>;
-}
+NÜÙ]\œ›ÜŠˆŠNÚYŠY›Ü›K›˜[YKš[J
+_›Ü›KœÛ™Kœ™\XÙJ×ÙËˆŠK›[™İŸY›Ü›K˜Ûİ[Kš[J
+_Y›Ü›K˜Ú]Kš[J
+_Y›Ü›K™\İ[˜][Û‹š[J
+J^ÜÙ]\œ›ÜŠœ™\]Z\™Y
+NÜ™]\›ß\Ù]İX›Z][™ÊYJNİ^ØÛÛœİ™\ÜÛœÙOX]ØZ]™]Ú
+‹Ø\KÛÜ™\ˆ‹ÛY]Ùˆ”ÔÕ‹XY\œÎÈÛÛ[U\Hˆ˜\XØ][Û‹ÚœÛÛˆŸK›ÙN’”ÓÓ‹œİš[™ÚYJË‹‹™›Ü›KÛ™N˜	ÜÛ™PÛÙ_H	Ù›Ü›KœÛ™_Xš[J
+K[™İXYÙN›[™Ë][\ßJ_JNÚYŠ\™\ÜÛœÙK›ÚÊ]›İÈ™]È\œ›ÜŠ›Ü™\ˆŠNÛÛ”İXØÙ\ÜÊ
+NßXØ]ÚÜÙ]\œ›ÜŠ›Ü™\‘\œ›ÜŠNßYš[˜[^ÜÙ]İX›Z][™Ê˜[ÙJNß_NÂˆ™]\›ˆ›Ü›HÛ\ÜÓ˜[YOH˜ÚXÚÛİ]Y›Ü›HˆÛ”İX›Z]^ÜİX›Z]O]ˆÛ\ÜÓ˜[YOH˜ÚXÚÛİ]]İ[Ü[İİ[OÜÜ[İ›Û™Ïİİ[H±`Üİ›Û™ÏÙ]X™[İ›˜[Y_O[œ]˜[YO^Ù›Ü›K›˜[Y_HÛÚ[™ÙO^ÙOO\]J›˜[YH‹K\™Ù]˜[YJ_H]]ĞÛÛ\]OH›˜[YHˆX^[™İ^ÌLH™\]Z\™YÏÛX™[X™[İœÛ™_O]ˆÛ\ÜÓ˜[YOHœÛ™KZ[œ]Ù[Xİ\šXK[X™[^İ˜Ûİ[_H˜[YO^ÜÛ™PÛÙ_HÛÚ[™ÙO^ÙOOœÙ]Û™PÛÙJK\™Ù]˜[YJ_OÜÛ™PÛÙ\Ë›X\
+][OOÜ[ÛˆÙ^O^Ú][K˜ÛÙ_H˜[YO^Ú][K˜ÛÙ_OÚ][K›X™[OÛÜ[ÛŠ_OÜÙ[Xİ[œ]\OH[ˆ[œ][ÙOH›[Y\šXÈˆ˜[YO^Ù›Ü›KœÛ™_HÛÚ[™ÙO^ÙOO\]JœÛ™H‹›Ü›X]Û™JK\™Ù]˜[YJJ_H]]ĞÛÛ\]OH[[˜][Û˜[ˆXÙZÛ\HLHŒÍMÈˆX^[™İ^ÌM_H™\]Z\™YÏÙ]ÛX™[X™[İ[YÜ˜[_O[œ]˜[YO^Ù›Ü›K[YÜ˜[_HÛÚ[™ÙO^ÙOO\]J[YÜ˜[H‹K\™Ù]˜[YJ_HXÙZÛ\H\Ù\›˜[YHˆX^[™İ^ÎKÏÛX™[X™[İ™[]™\_OÙ[Xİ˜[YO^Ù›Ü›K™[]™\_HÛÚ[™ÙO^ÙOO\]J™[]™\H‹K\™Ù]˜[YJ_OÜ[Ûˆ˜[YOHœÜİİœÜİOÛÜ[ÛÜ[Ûˆ˜[YOH˜Ûİ\šY\ˆİ˜Ûİ\šY\ŸOÛÜ[ÛÜ[Ûˆ˜[YOHœXÚİ\İœXÚİ\OÛÜ[ÛÜ[Ûˆ˜[YOH˜YÜ™YHİ˜YÜ™YQ[]™\_OÛÜ[ÛÜÙ[XİÛX™[]ˆÛ\ÜÓ˜[YOH˜ÚXÚÛİ]YÜšYX™[İ˜Ûİ[_O[œ]˜[YO^Ù›Ü›K˜Ûİ[_HÛÚ[™ÙO^ÙOO\]J˜Ûİ[H‹K\™Ù]˜[YJ_H]]ĞÛÛ\]OH˜Ûİ[K[˜[YHˆX^[™İ^ÎH™\]Z\™YÏÛX™[X™[İ˜Ú]_O[œ]˜[YO^Ù›Ü›K˜Ú]_HÛÚ[™ÙO^ÙOO\]J˜Ú]H‹K\™Ù]˜[YJ_H]]ĞÛÛ\]OH˜Y™\ÜË[]™[ˆˆX^[™İ^ÌLH™\]Z\™YÏÛX™[Ù]X™[İ™\İ[˜][ÛŸO[œ]˜[YO^Ù›Ü›K™\İ[˜][ÛŸHÛÚ[™ÙO^ÙOO\]J™\İ[˜][Ûˆ‹K\™Ù]˜[YJ_H]]ĞÛÛ\]OHœİ™Y]XY™\ÜÈˆX^[™İ^ÌMŒH™\]Z\™YÏÛX™[X™[Û\ÜÓ˜[YOHÙXœÚ]KYšY[ˆ\šXKZY[HYH•ÙXœÚ]O[œ]X’[™^^ËL_H]]ĞÛÛ\]OH›Ù™ˆˆ˜[YO^Ù›Ü›KÙXœÚ]_HÛÚ[™ÙO^ÙOO\]JÙXœÚ]H‹K\™Ù]˜[YJ_KÏÛX™[Ù\œ›Ü‰‰Û\ÜÓ˜[YOH™›Ü›KY\œ›Üˆˆ›ÛOH˜[\Ù\œ›ÜŸOÜŸO]ÛˆÛ\ÜÓ˜[YOHœİX›Z][Ü™\ˆˆ\OHœİX›Z]ˆ\ØX›Y^ÜİX›Z][™ßOÜİX›Z][™ÏİœÙ[™[™Î˜	İœÙ[™Ü™\ŸH8¡¤˜OØ]Û]ÛˆÛ\ÜÓ˜[YOH˜˜XÚËXØ\ˆ\OH˜]ÛˆˆÛÛXÚÏ^ÛÛ˜XÚßO¸¡¤İ˜˜XÚÕĞØ\OØ]ÛÙ›Ü›OÂŸB
