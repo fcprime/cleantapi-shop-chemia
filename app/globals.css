@@ -133,3 +133,36 @@ footer{background:#0e1814}
   .video-tabs button{width:100%;white-space:normal;text-align:left;line-height:1.35}
   .video-library-anchor{scroll-margin-top:82px}
 }
+
+/* 2026-08 desktop density and media reliability improvements. */
+@media(min-width:1180px){
+  .product-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .product-image{height:235px;padding:24px 20px}
+  .product-body{padding:18px}
+  .product-body h3{font-size:21px;line-height:1.12}
+  .product-body .description{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:3;font-size:13px;line-height:1.45}
+  .size-row{padding:12px 0}.size-row button{padding:7px 8px}
+  .price-line{padding:12px 0}.price-line strong{font-size:22px}
+  .product-actions{grid-template-columns:.9fr 1.35fr}.product-actions button{min-height:44px;font-size:13px}
+}
+
+@media(min-width:901px){
+  .bundle-heading{min-height:124px;padding:20px 22px 17px}
+  .bundle-heading h3{font-size:25px}
+  .bundle-slider{height:245px;padding:30px 48px 66px}
+  .bundle-slider>img{max-width:72%;max-height:72%}
+  .bundle-slide-caption{left:20px;right:20px;bottom:27px}
+  .bundle-slide-caption strong{font-size:13px}
+  .bundle-prev,.bundle-next{width:38px;height:38px}
+  .bundle-copy{padding:21px}
+  .bundle-price{font-size:31px;margin-bottom:10px}
+  .bundle-copy>p{min-height:0;margin-bottom:15px;display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:14px}
+  .bundle-content{padding:14px 16px}
+  .bundle-content h4{margin:0;font-size:14px}
+  .bundle-expand{padding:11px 4px 0}
+  .bundle-add{min-height:48px;margin-top:13px}
+}
+
+.hero-products{overflow:visible}
+.hero-photo .hero-products img{max-width:34%;max-height:74%;width:auto!important;height:auto!important;margin:0 -2%!important;object-fit:contain;mix-blend-mode:multiply}
+@media(max-width:700px){.hero-photo .hero-products img{max-width:36%;max-height:75%}}
