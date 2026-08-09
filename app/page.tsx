@@ -25,13 +25,14 @@ type VideoItem = {
   type: "chemistry" | "equipment";
   title: { ua: string; ru: string };
 };
-type BundleItem = { productId: string; name: string; amount: string; qty?: number };
+type BundleItem = { productId: string; name: string; amount: string; qty?: number; pricePln?: number; priceEur?: number };
 type Bundle = {
   id: string;
   title: { ua: string; ru: string };
   price: number;
   description: { ua: string; ru: string };
   items: BundleItem[];
+  customPrice?: boolean;
 };
 
 type CuratedProduct = {
@@ -216,14 +217,21 @@ const curatedProducts: Record<string, CuratedProduct> = {
   },
 };
 
-function inferProblems(text: string) {
-  const s = text.toLowerCase(); const found = ["general"];
-  if (/сеч|моч|urine|запах/.test(s)) found.push("urine");
-  if (/кров|blood|білков|белков/.test(s)) found.push("blood");
-  if (/жир|масл|grease/.test(s)) found.push("grease");
-  if (/кава|кофе|вино|чай/.test(s)) found.push("drinks");
-  if (/тварин|животн|pet/.test(s)) found.push("pets");
-  return found;
+const PROBLEM_PRODUCT_IDS: Record<string, string[]> = {
+  urine: ["16", "24", "51", "75"],
+  blood: ["14", "18", "21", "26", "27", "29", "72", "76", "79", "91"],
+  grease: ["8", "11", "20", "28", "31", "41", "72", "78", "79", "81", "91"],
+  drinks: ["14", "21", "25", "26", "27", "29", "72", "79"],
+};
+
+const BRAND_PRODUCT_IDS: Record<string, string[]> = {
+  brandChemspec: ["76", "78", "77", "79", "81", "46", "80"],
+  brandWorldOfClean: ["29", "31", "30", "28", "74", "27", "10"],
+  brandGlobal: ["21", "19", "22", "23", "16", "17", "41", "24", "51", "72", "25", "42", "20", "8", "75"],
+};
+
+function problemsForProduct(id: string) {
+  return ["general", ...Object.entries(PROBLEM_PRODUCT_IDS).filter(([, ids]) => ids.includes(id)).map(([problem]) => problem)];
 }
 
 function inferChemistryGroups(text: string) {
@@ -265,7 +273,7 @@ function mapProduct(row: Record<string, unknown>): Product {
   const chemistryGroups = Array.isArray(row.chemistry_groups)
     ? row.chemistry_groups.map(String)
     : inferChemistryGroups(`${name} ${row.short_desc} ${ua}`);
-  return { id, name, nameRu, brand:String(row.brand || "Професійна серія"), image:images[0] || "", images, category:String(row.category || "chemistry"), problem:inferProblems(`${name} ${ua}`), price:Math.min(...sizes.map(v=>v.price)), sizes, status:row.in_stock === false || row.in_stock === "false" ? "waiting" : "available", description:{ua,ru}, chemistryGroups };
+  return { id, name, nameRu, brand:String(row.brand || "Професійна серія"), image:images[0] || "", images, category:String(row.category || "chemistry"), problem:problemsForProduct(id), price:Math.min(...sizes.map(v=>v.price)), sizes, status:row.in_stock === false || row.in_stock === "false" ? "waiting" : "available", description:{ua,ru}, chemistryGroups };
 }
 
 function mapBundle(row: Record<string, unknown>): Bundle {
@@ -277,6 +285,8 @@ function mapBundle(row: Record<string, unknown>): Bundle {
       name: String(item.name || "Товар"),
       amount: String(item.amount || "1 шт"),
       qty: Number(item.qty) || 1,
+      pricePln: Number(item.pricePln || item.price_pln) || undefined,
+      priceEur: Number(item.priceEur || item.price_eur) || undefined,
     })).filter(item => item.productId) : [];
   } catch {
     items = [];
@@ -288,6 +298,7 @@ function mapBundle(row: Record<string, unknown>): Bundle {
     price: Number(row.price) || 0,
     description: { ua, ru: String(row.description_ru || ua) },
     items,
+    customPrice: (Number(row.price) || 0) <= 0,
   };
 }
 
@@ -399,7 +410,8 @@ export default function Home() {
 
   const filtered = useMemo(() => products.filter((p) => {
     const sectionMatch = category === "all" || (category === "chemistry" && p.category === "chemistry") || (category === "inventory" && ["tools","accessories"].includes(p.category)) || (category === "equipment" && ((subCategory === "windowEquipment" && p.category === "window-equipment") || (subCategory !== "windowEquipment" && p.category === "equipment")));
-    const subMatch = category !== "chemistry" || subCategory === "all" || p.chemistryGroups.includes(subCategory);
+    const brandIds = BRAND_PRODUCT_IDS[subCategory];
+    const subMatch = category !== "chemistry" || subCategory === "all" || (brandIds ? brandIds.includes(p.id) : p.chemistryGroups.includes(subCategory));
     const searchMatch = !search.trim() || `${productName(p,lang)} ${p.brand}`.toLocaleLowerCase(lang === "ua" ? "uk" : "ru").includes(search.trim().toLocaleLowerCase(lang === "ua" ? "uk" : "ru"));
     return sectionMatch && subMatch && searchMatch && (problem === "all" || problem === "unsure" || p.problem.includes(problem));
   }), [products, category, subCategory, problem, search, lang]);
@@ -449,6 +461,12 @@ export default function Home() {
       <div className="hero-photo"><div className="hero-products"><img src="/products/hero-global-power-blast-clean.png?v=20260808-4" alt="Global Power Blast"/><img src="/products/hero-chemspec-cotton-clean.png?v=20260808-4" alt="Chemspec Powdered Cotton Upholstery Cleaner"/><img src="/products/hero-global-acid-ocean-clean.png?v=20260808-4" alt="Global Acid Ocean"/></div><div className="expert-stamp">✓<span>{t.checked}</span></div></div>
     </div></section>
 
+    <section className="shop-guide"><div className="container"><div className="guide-heading"><p className="eyebrow">{lang === "ua" ? "ЯК КОРИСТУВАТИСЯ САЙТОМ" : "КАК ПОЛЬЗОВАТЬСЯ САЙТОМ"}</p><h2>{lang === "ua" ? "Знайдіть потрібний засіб і оформіть замовлення" : "Найдите нужное средство и оформите заказ"}</h2></div><div className="guide-steps">
+      <article><span>01</span><strong>{lang === "ua" ? "Оберіть напрям" : "Выберите направление"}</strong><p>{lang === "ua" ? "Шукайте за типом плями, категорією хімії або брендом." : "Ищите по типу пятна, категории химии или бренду."}</p></article>
+      <article><span>02</span><strong>{lang === "ua" ? "Відкрийте товар" : "Откройте товар"}</strong><p>{lang === "ua" ? "Прочитайте опис, перевірте наявність і виберіть потрібний об’єм." : "Прочитайте описание, проверьте наличие и выберите нужный объём."}</p></article>
+      <article><span>03</span><strong>{lang === "ua" ? "Оформіть замовлення" : "Оформите заказ"}</strong><p>{lang === "ua" ? "Додайте товари в кошик і залиште контактні дані для узгодження доставки." : "Добавьте товары в корзину и оставьте контакты для согласования доставки."}</p></article>
+    </div><div className="guide-contact"><p>{lang === "ua" ? "Не знайшли потрібний засіб або об’єм? На сайті представлена не вся продукція — напишіть нам у Telegram." : "Не нашли нужное средство или объём? На сайте представлена не вся продукция — напишите нам в Telegram."}</p><a href="https://t.me/Vitaliiivanovich" target="_blank" rel="noreferrer">{lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"} <span>→</span></a></div></div></section>
+
     <section className="shop-entry container" id="catalog"><div className="catalog-top"><div><p className="eyebrow">{t.professionalCatalog}</p><h2>{t.catalogTitle}</h2><p>{lang === "ua" ? "Оберіть потрібний розділ — покажемо товари без зайвих кроків." : "Выберите нужный раздел — покажем товары без лишних шагов."}</p></div></div>
       <div className="catalog-directory">{([
         {id:"chemistry",label:"chemistry"},{id:"sets",label:"starterSets"},{id:"inventory",label:"inventory"},{id:"equipment",label:"equipmentCatalog"}
@@ -456,15 +474,18 @@ export default function Home() {
     </section>
 
     <section className="problems-wrap"><div className="problems container" id="problems"><div className="section-heading"><div><p className="eyebrow">{lang === "ua" ? "ПІДБІР ЗА ПРОБЛЕМОЮ" : "ПОДБОР ПО ПРОБЛЕМЕ"}</p><h2>{lang === "ua" ? "Оберіть тип забруднення" : "Выберите тип загрязнения"}</h2><p>{t.problemText}</p></div><span>{lang === "ua" ? "2 хвилини на вибір" : "2 минуты на выбор"}</span></div><div className="problem-grid">
-      {["urine","blood","grease","drinks","pets","unsure"].map((id) => <button key={id} className={problem === id ? "selected" : ""} onClick={() => selectProblem(id)}><Icon name={id}/><span>{t[id as keyof typeof t]}</span><b>→</b></button>)}
+      {["urine","blood","grease","drinks","unsure"].map((id) => <button key={id} className={problem === id ? "selected" : ""} onClick={() => selectProblem(id)}><Icon name={id}/><span>{t[id as keyof typeof t]}</span><b>→</b></button>)}
     </div></div></section>
 
+    <section className="safety-notice"><div className="container"><span aria-hidden="true">!</span><div><strong>{lang === "ua" ? "Перед використанням обов’язково зробіть тест" : "Перед использованием обязательно сделайте тест"}</strong><p>{lang === "ua" ? "Кожен засіб спочатку протестуйте на непомітній ділянці. Лише після цього працюйте на основній поверхні та дотримуйтеся інструкції виробника." : "Каждое средство сначала протестируйте на незаметном участке. Только после этого работайте на основной поверхности и соблюдайте инструкцию производителя."}</p></div></div></section>
+
     <section className="catalog-section"><div className="container">
-      {category === "chemistry" && <div className="subcategory-panel"><span>{t.chemistry}</span><div>{["all","prespray","detergents","acidRinses","stainRemovers","odorNeutralizers","carChemistry"].map(id=><button key={id} className={subCategory===id?"active":""} onClick={()=>{setSubCategory(id);setVisibleCount(12)}}>{t[id as keyof typeof t]}</button>)}</div></div>}
+      {category === "chemistry" && <><div className="subcategory-panel"><span>{t.chemistry}</span><div>{["all","prespray","detergents","acidRinses","stainRemovers","odorNeutralizers","carChemistry"].map(id=><button key={id} className={subCategory===id?"active":""} onClick={()=>{setSubCategory(id);setVisibleCount(12)}}>{t[id as keyof typeof t]}</button>)}</div></div><div className="subcategory-panel brand-panel"><span>{lang === "ua" ? "Бренди" : "Бренды"}</span><div>{([{"id":"brandGlobal","label":"Global"},{"id":"brandChemspec","label":"Chemspec"},{"id":"brandWorldOfClean","label":"World of Clean"}]).map(item=><button key={item.id} className={subCategory===item.id?"active":""} onClick={()=>{setSubCategory(item.id);setVisibleCount(24)}}>{item.label}</button>)}</div></div></>}
       {category === "equipment" && <div className="subcategory-panel"><span>{t.equipment}</span><div><button className={subCategory!=="windowEquipment"?"active":""} onClick={()=>setSubCategory("all")}>{t.furnitureEquipment}</button><button className={subCategory==="windowEquipment"?"active":""} onClick={()=>setSubCategory("windowEquipment")}>{t.windowEquipment}</button></div></div>}
       {category === "videos" && <div className="subcategory-panel video-tabs"><span>{t.videos}</span><div><button className={subCategory!=="equipmentVideos"?"active":""} onClick={()=>selectVideoType("chemistryVideos")}>{t.chemistryVideos}<b>↓</b></button><button className={subCategory==="equipmentVideos"?"active":""} onClick={()=>selectVideoType("equipmentVideos")}>{t.equipmentVideos}<b>↓</b></button></div></div>}
       {category !== "all" && <button className="show-all" onClick={()=>selectCategory("all")}>← {t.backToAll}</button>}
       <div id="catalog-results" className="catalog-results-anchor">{loading && <p className="catalog-loading">{t.loading}</p>}{category === "training" ? <TrainingPanel t={t}/> : category === "videos" ? <div id="video-library" className="video-library-anchor"><VideoLibrary t={t} lang={lang} type={subCategory === "equipmentVideos" ? "equipment" : "chemistry"}/></div> : category === "sets" ? <BundleGrid bundles={bundles} products={products} lang={lang} t={t} onAdd={add}/> : <>
+        {BRAND_PRODUCT_IDS[subCategory] && <div className="brand-catalog-note"><div><strong>{lang === "ua" ? `Хімія ${subCategory === "brandWorldOfClean" ? "World of Clean" : subCategory === "brandChemspec" ? "Chemspec" : "Global"}` : `Химия ${subCategory === "brandWorldOfClean" ? "World of Clean" : subCategory === "brandChemspec" ? "Chemspec" : "Global"}`}</strong><p>{lang === "ua" ? "Якщо потрібного засобу або об’єму немає у списку, уточніть наявність у приватних повідомленнях." : "Если нужного средства или объёма нет в списке, уточните наличие в личных сообщениях."}</p></div><a href="https://t.me/Vitaliiivanovich" target="_blank" rel="noreferrer">Telegram →</a></div>}
         <div className="catalog-tools"><label><span className="sr-only">{t.searchProducts}</span><input type="search" value={search} onChange={(event)=>{setSearch(event.target.value);setVisibleCount(12);setFullCatalogOpen(true)}} placeholder={t.searchProducts}/></label><p>{t.shownProducts} <strong>{Math.min(visibleProducts.length, filtered.length)}</strong> {t.ofProducts} <strong>{filtered.length}</strong> {t.productsWord}</p></div>
         {filtered.length ? <div className="product-grid">{visibleProducts.map((p) => <ProductCard key={p.id} product={p} lang={lang} t={t} cart={cart} onAdd={add} onChangeQty={changeProductQty} onDetails={setSelectedProduct}/>)}</div> : <p className="catalog-empty">{t.noProducts}</p>}
         {filtered.length > visibleProducts.length && <button className="catalog-more" type="button" onClick={()=>{if (!fullCatalogOpen) {setFullCatalogOpen(true);setVisibleCount(12)} else setVisibleCount(count=>count+12)}}>{fullCatalogOpen ? t.showMoreProducts : t.openFullCatalog}<span>↓</span></button>}
@@ -519,12 +540,13 @@ function BundleCard({ bundle, products, lang, t, onAdd }: { bundle: Bundle; prod
   const size = lang === "ua" ? "1 набір" : "1 набор";
   const bundleProduct: Product = { id:bundle.id, name:bundle.title.ua, nameRu:bundle.title.ru, brand:lang === "ua" ? "Готовий набір" : "Готовый набор", image:products.find(product=>product.id===bundle.items[0]?.productId)?.image || "", images:[], category:"sets", problem:[], price:bundle.price, sizes:[{label:size,price:bundle.price}], status:"available", description:bundle.description, chemistryGroups:[] };
   const move = (delta:number) => setSlide(current => (current + delta + bundle.items.length) % bundle.items.length);
-  const bundleKind = /стандарт/i.test(bundle.title.ua) ? "standard" : /експерт/i.test(bundle.title.ua) ? "expert" : /авто/i.test(bundle.title.ua) ? "auto" : "start";
+  const bundleKind = /unger|вікон|окон/i.test(`${bundle.title.ua} ${bundle.title.ru}`) ? "window" : /стандарт/i.test(bundle.title.ua) ? "standard" : /експерт/i.test(bundle.title.ua) ? "expert" : /авто/i.test(bundle.title.ua) ? "auto" : "start";
   const labels: Record<string,{ua:string;ru:string}> = {
     start: {ua:"Для початку роботи · на 8–10 диванів",ru:"Для начала работы · на 8–10 диванов"},
     standard: {ua:"Оптимальний вибір · на 35–45 диванів",ru:"Оптимальный выбор · на 35–45 диванов"},
     expert: {ua:"Розширений професійний комплект",ru:"Расширенный профессиональный комплект"},
     auto: {ua:"Салон, пластик, шкіра та скло",ru:"Салон, пластик, кожа и стекло"},
+    window: {ua:"Комплектація під ваші задачі",ru:"Комплектация под ваши задачи"},
   };
   const visibleItems = expanded ? bundle.items : [];
   useEffect(() => {
@@ -537,15 +559,16 @@ function BundleCard({ bundle, products, lang, t, onAdd }: { bundle: Bundle; prod
       document.body.classList.remove("modal-open");
     };
   }, [expanded]);
-  return <><article className="bundle-card">
+  const telegramText = lang === "ua" ? `Добрий день! Хочу підібрати комплектацію набору «${bundle.title.ua}».` : `Добрый день! Хочу подобрать комплектацию набора «${bundle.title.ru}».`;
+  return <><article className="bundle-card" onClick={()=>setExpanded(true)}>
     <div className="bundle-heading"><div className="bundle-kicker"><p>{lang === "ua" ? "ГОТОВИЙ КОМПЛЕКТ" : "ГОТОВЫЙ КОМПЛЕКТ"}</p>{bundleKind === "standard" && <span>{lang === "ua" ? "НАЙПОПУЛЯРНІШИЙ" : "САМЫЙ ПОПУЛЯРНЫЙ"}</span>}</div><h3>{bundle.title[lang]}</h3><small>{labels[bundleKind][lang]}</small></div>
     <div className="bundle-slider">
-      {image && <img src={image} alt={`${item.name}, ${item.amount}`}/>}<button className="bundle-prev" type="button" onClick={()=>move(-1)} aria-label="Назад">‹</button><button className="bundle-next" type="button" onClick={()=>move(1)} aria-label="Далі">›</button>
-      <div className="bundle-slide-caption"><strong>{item.name}</strong><span>{item.amount} × {item.qty || 1}</span></div><div className="bundle-counter">{slide + 1} / {bundle.items.length}</div>
-      <div className="bundle-dots">{bundle.items.map((_,index)=><button key={index} className={index===slide?"active":""} type="button" aria-label={`${index+1}`} onClick={()=>setSlide(index)}/>)}</div>
+      {image && <img src={image} alt={`${item.name}, ${item.amount}`}/>}<button className="bundle-prev" type="button" onClick={(event)=>{event.stopPropagation();move(-1)}} aria-label="Назад">‹</button><button className="bundle-next" type="button" onClick={(event)=>{event.stopPropagation();move(1)}} aria-label="Далі">›</button>
+      <div className="bundle-slide-caption"><strong>{item.name}</strong><span>{item.amount} × {item.qty || 1}{item.pricePln ? ` · ${item.pricePln} zł${item.priceEur ? ` / ${item.priceEur} €` : ""}` : ""}</span></div><div className="bundle-counter">{slide + 1} / {bundle.items.length}</div>
+      <div className="bundle-dots">{bundle.items.map((_,index)=><button key={index} className={index===slide?"active":""} type="button" aria-label={`${index+1}`} onClick={(event)=>{event.stopPropagation();setSlide(index)}}/>)}</div>
     </div>
-    <div className="bundle-copy"><strong className="bundle-price">{bundle.price} zł</strong><p>{bundle.description[lang]}</p><button className="bundle-expand" type="button" aria-haspopup="dialog" aria-expanded={expanded} onClick={()=>setExpanded(true)}><span>📦 {lang === "ua" ? `Склад набору · ${bundle.items.length} позицій` : `Состав набора · ${bundle.items.length} позиций`}</span><b>→</b></button><button className="bundle-add" type="button" onClick={()=>onAdd(bundleProduct,size)}>{lang === "ua" ? `Додати набір у кошик — ${bundle.price} zł` : `Добавить набор в корзину — ${bundle.price} zł`}</button></div>
-  </article>{expanded && <div className="bundle-modal-layer" role="presentation" onMouseDown={(event)=>event.target===event.currentTarget&&setExpanded(false)}><section className="bundle-modal" role="dialog" aria-modal="true" aria-labelledby={`${bundle.id}-title`}><div className="bundle-modal-head"><div><p>{lang === "ua" ? "СКЛАД ГОТОВОГО НАБОРУ" : "СОСТАВ ГОТОВОГО НАБОРА"}</p><h3 id={`${bundle.id}-title`}>{bundle.title[lang]}</h3></div><button type="button" onClick={()=>setExpanded(false)} aria-label={lang === "ua" ? "Закрити" : "Закрыть"}>×</button></div><ul>{visibleItems.map((entry,index)=><li key={`${entry.name}-${index}`}><span>{entry.name}</span><b>{entry.amount} × {entry.qty || 1}</b></li>)}</ul><div className="bundle-modal-footer"><strong>{bundle.price} zł</strong><button type="button" onClick={()=>{onAdd(bundleProduct,size);setExpanded(false)}}>{lang === "ua" ? "Додати набір у кошик" : "Добавить набор в корзину"}</button></div></section></div>}</>;
+    <div className="bundle-copy"><strong className="bundle-price">{bundle.customPrice ? (lang === "ua" ? "Ціна залежить від комплектації" : "Цена зависит от комплектации") : `${bundle.price} zł`}</strong><p>{bundle.description[lang]}</p><button className="bundle-expand" type="button" aria-haspopup="dialog" aria-expanded={expanded} onClick={(event)=>{event.stopPropagation();setExpanded(true)}}><span>📦 {lang === "ua" ? `Опис і склад · ${bundle.items.length} позицій` : `Описание и состав · ${bundle.items.length} позиций`}</span><b>→</b></button>{bundle.customPrice ? <a className="bundle-add bundle-contact" href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(telegramText)}`} target="_blank" rel="noreferrer" onClick={event=>event.stopPropagation()}>{lang === "ua" ? "Написати для замовлення" : "Написать для заказа"}</a> : <button className="bundle-add" type="button" onClick={(event)=>{event.stopPropagation();onAdd(bundleProduct,size)}}>{lang === "ua" ? `Додати набір у кошик — ${bundle.price} zł` : `Добавить набор в корзину — ${bundle.price} zł`}</button>}</div>
+  </article>{expanded && <div className="bundle-modal-layer" role="presentation" onMouseDown={(event)=>event.target===event.currentTarget&&setExpanded(false)}><section className="bundle-modal" role="dialog" aria-modal="true" aria-labelledby={`${bundle.id}-title`}><div className="bundle-modal-head"><div><p>{lang === "ua" ? "ОПИС І СКЛАД ГОТОВОГО НАБОРУ" : "ОПИСАНИЕ И СОСТАВ ГОТОВОГО НАБОРА"}</p><h3 id={`${bundle.id}-title`}>{bundle.title[lang]}</h3></div><button type="button" onClick={()=>setExpanded(false)} aria-label={lang === "ua" ? "Закрити" : "Закрыть"}>×</button></div><p className="bundle-modal-description">{bundle.description[lang]}</p><ul>{visibleItems.map((entry,index)=><li key={`${entry.name}-${index}`}><span>{entry.name}</span><b>{entry.amount} × {entry.qty || 1}{entry.pricePln ? ` · ${entry.pricePln} zł${entry.priceEur ? ` / ${entry.priceEur} €` : ""}` : ""}</b></li>)}</ul><div className="bundle-modal-footer"><strong>{bundle.customPrice ? (lang === "ua" ? "За комплектацією" : "По комплектации") : `${bundle.price} zł`}</strong>{bundle.customPrice ? <a href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(telegramText)}`} target="_blank" rel="noreferrer">{lang === "ua" ? "Написати для замовлення" : "Написать для заказа"}</a> : <button type="button" onClick={()=>{onAdd(bundleProduct,size);setExpanded(false)}}>{lang === "ua" ? "Додати набір у кошик" : "Добавить набор в корзину"}</button>}</div></section></div>}</>;
 }
 
 function VideoLibrary({ t, lang, type }: { t: typeof copy.ua; lang: Language; type: "chemistry" | "equipment" }) {
@@ -581,7 +604,7 @@ function ProductCard({ product, lang, t, cart, onAdd, onChangeQty, onDetails }: 
 
 function ProductModal({product,lang,t,onClose,onAdd}:{product:Product;lang:Language;t:typeof copy.ua;onClose:()=>void;onAdd:(p:Product,size:string)=>void}){
  const [size,setSize]=useState(product.sizes[0]?.label||"1 шт."); const [photo,setPhoto]=useState(0); const price=product.sizes.find(v=>v.label===size)?.price||product.price; const unavailable=product.status==="waiting"; const gallery=product.images.length?product.images:[product.image]; const name=productName(product,lang);
- useEffect(()=>{const key=(e:KeyboardEvent)=>e.key==="Escape"&&onClose();document.addEventListener("keydown",key);return()=>document.removeEventListener("keydown",key)},[onClose]);
+ useEffect(()=>{const key=(e:KeyboardEvent)=>e.key==="Escape"&&onClose();document.addEventListener("keydown",key);document.body.classList.add("modal-open");return()=>{document.removeEventListener("keydown",key);document.body.classList.remove("modal-open")}},[onClose]);
  return <div className="product-modal-layer" onMouseDown={onClose}><section className="product-modal" role="dialog" aria-modal="true" aria-label={name} onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}>×</button><div className="modal-media"><img src={gallery[photo]} alt={`${product.brand} ${name}, фото ${photo+1}`}/><span className={`status ${product.status}`}>{t[product.status]}</span>{gallery.length>1&&<div className="modal-gallery">{gallery.map((src,index)=><button key={src} className={index===photo?"active":""} type="button" onClick={()=>setPhoto(index)} aria-label={`Фото ${index+1}`}><img src={src} alt=""/></button>)}</div>}</div><div className="modal-copy"><p className="brand-label">{product.brand}</p><h2>{name}</h2><p className="modal-kicker">{t.fullDescription}</p><p className="modal-description">{product.description[lang]}</p><div className="modal-sizes"><span>{t.size}</span><div>{product.sizes.map(v=><button key={v.label} className={size===v.label?"active":""} onClick={()=>setSize(v.label)}>{v.label} · {v.price} zł</button>)}</div></div><strong className="modal-price">{price} zł</strong><button className="modal-add" disabled={unavailable} onClick={()=>onAdd(product,size)}>{unavailable?t.waiting:`+ ${t.add}`}</button></div></section></div>
 }
 
