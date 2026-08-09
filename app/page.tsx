@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Language = "ua" | "ru";
+type Currency = "PLN" | "EUR";
 type Product = {
   id: string;
   name: string;
@@ -25,7 +26,14 @@ type VideoItem = {
   type: "chemistry" | "equipment";
   title: { ua: string; ru: string };
 };
-type BundleItem = { productId: string; name: string; amount: string; qty?: number; pricePln?: number; priceEur?: number };
+type BundleItem = {
+  productId: string;
+  name: string;
+  amount: string;
+  qty?: number;
+  pricePln?: number;
+  priceEur?: number;
+};
 type Bundle = {
   id: string;
   title: { ua: string; ru: string };
@@ -44,46 +52,201 @@ type CuratedProduct = {
 
 const CART_KEY = "cleantapi-cart-v1";
 const CART_TTL = 24 * 60 * 60 * 1000;
+const CURRENCY_KEY = "cleantapi-currency-v1";
+const EUR_RATE_KEY = "cleantapi-eur-rate-v1";
+const DEFAULT_EUR_RATE = 4.25;
+
+function money(valuePln: number, currency: Currency, eurRate: number) {
+  if (currency === "EUR") {
+    return `${new Intl.NumberFormat("uk-UA", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(valuePln / eurRate)} €`;
+  }
+  return `${new Intl.NumberFormat("pl-PL", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(valuePln)} zł`;
+}
 
 const videoItems: VideoItem[] = [
-  { id: "NCl8qnkkFnc", type: "chemistry", title: { ua: "Кислотні ополіскувачі для промивання", ru: "Кислотные ополаскиватели для промывки" } },
-  { id: "vS5aXijIl14", type: "chemistry", title: { ua: "Засоби Global для основної хімчистки", ru: "Средства Global для основной химчистки" } },
-  { id: "C-rs1IJS-QI", type: "chemistry", title: { ua: "Готовий набір для хімчистки авто", ru: "Готовый набор для химчистки авто" } },
-  { id: "NWMhbbk4W38", type: "chemistry", title: { ua: "Коротка інструкція про хімію Chemspec", ru: "Краткая инструкция по химии Chemspec" } },
-  { id: "Xwssbc6K6B8", type: "chemistry", title: { ua: "Порівняння готових наборів для хімчистки меблів", ru: "Сравнение готовых наборов для химчистки мебели" } },
-  { id: "MK4PxYBj21Y", type: "chemistry", title: { ua: "Засоби Global для видалення плям сечі", ru: "Средства Global для удаления пятен мочи" } },
-  { id: "1htMP2p91xY", type: "chemistry", title: { ua: "Пре-спреї World of Clean", ru: "Пре-спреи World of Clean" } },
-  { id: "4jCd_RtuJjE", type: "equipment", title: { ua: "Як користуватися екстрактором Santoemma", ru: "Как пользоваться экстрактором Santoemma" } },
-  { id: "-9JCjzxfqEA", type: "equipment", title: { ua: "Порівняння миючих пилососів Santoemma, Karcher і Profi", ru: "Сравнение моющих пылесосов Santoemma, Karcher и Profi" } },
+  {
+    id: "NCl8qnkkFnc",
+    type: "chemistry",
+    title: {
+      ua: "Кислотні ополіскувачі для промивання",
+      ru: "Кислотные ополаскиватели для промывки",
+    },
+  },
+  {
+    id: "vS5aXijIl14",
+    type: "chemistry",
+    title: {
+      ua: "Засоби Global для основної хімчистки",
+      ru: "Средства Global для основной химчистки",
+    },
+  },
+  {
+    id: "C-rs1IJS-QI",
+    type: "chemistry",
+    title: {
+      ua: "Готовий набір для хімчистки авто",
+      ru: "Готовый набор для химчистки авто",
+    },
+  },
+  {
+    id: "NWMhbbk4W38",
+    type: "chemistry",
+    title: {
+      ua: "Коротка інструкція про хімію Chemspec",
+      ru: "Краткая инструкция по химии Chemspec",
+    },
+  },
+  {
+    id: "Xwssbc6K6B8",
+    type: "chemistry",
+    title: {
+      ua: "Порівняння готових наборів для хімчистки меблів",
+      ru: "Сравнение готовых наборов для химчистки мебели",
+    },
+  },
+  {
+    id: "MK4PxYBj21Y",
+    type: "chemistry",
+    title: {
+      ua: "Засоби Global для видалення плям сечі",
+      ru: "Средства Global для удаления пятен мочи",
+    },
+  },
+  {
+    id: "1htMP2p91xY",
+    type: "chemistry",
+    title: { ua: "Пре-спреї World of Clean", ru: "Пре-спреи World of Clean" },
+  },
+  {
+    id: "4jCd_RtuJjE",
+    type: "equipment",
+    title: {
+      ua: "Як користуватися екстрактором Santoemma",
+      ru: "Как пользоваться экстрактором Santoemma",
+    },
+  },
+  {
+    id: "-9JCjzxfqEA",
+    type: "equipment",
+    title: {
+      ua: "Порівняння миючих пилососів Santoemma, Karcher і Profi",
+      ru: "Сравнение моющих пылесосов Santoemma, Karcher и Profi",
+    },
+  },
 ];
 
 const legacyBundles: Bundle[] = [
   {
-    id: "bundle-start", title: { ua: "Готовий набір «Старт»", ru: "Готовый набор «Старт»" }, price: 330,
-    description: { ua: "Мінімальний стартовий набір хімії для хімчистки меблів, сидінь авто та килимів. Цих засобів вистачить на хімчистку 8–10 диванів. Ціна вже з доставкою по Польщі.", ru: "Минимальный стартовый набор химии для химчистки мебели, сидений авто и ковров. Средств хватит на химчистку 8–10 диванов. Цена уже с доставкой по Польше." },
+    id: "bundle-start",
+    title: { ua: "Готовий набір «Старт»", ru: "Готовый набор «Старт»" },
+    price: 330,
+    description: {
+      ua: "Мінімальний стартовий набір хімії для хімчистки меблів, сидінь авто та килимів. Цих засобів вистачить на хімчистку 8–10 диванів. Ціна вже з доставкою по Польщі.",
+      ru: "Минимальный стартовый набор химии для химчистки мебели, сидений авто и ковров. Средств хватит на химчистку 8–10 диванов. Цена уже с доставкой по Польше.",
+    },
     items: [
-      {productId:"21",name:"Global Enzym",amount:"300 г"},{productId:"19",name:"Global Extraction",amount:"300 г"},{productId:"17",name:"Global Acid Ocean",amount:"1 л"},{productId:"16",name:"Global Urine",amount:"1 л"},{productId:"25",name:"Global OxyGo",amount:"500 мл"},{productId:"24",name:"Global Sta Kill",amount:"500 мл"},{productId:"26",name:"Global Stain Pro",amount:"250 мл"},{productId:"10",name:"World of Clean Spot Solve",amount:"250 мл"},
+      { productId: "21", name: "Global Enzym", amount: "300 г" },
+      { productId: "19", name: "Global Extraction", amount: "300 г" },
+      { productId: "17", name: "Global Acid Ocean", amount: "1 л" },
+      { productId: "16", name: "Global Urine", amount: "1 л" },
+      { productId: "25", name: "Global OxyGo", amount: "500 мл" },
+      { productId: "24", name: "Global Sta Kill", amount: "500 мл" },
+      { productId: "26", name: "Global Stain Pro", amount: "250 мл" },
+      { productId: "10", name: "World of Clean Spot Solve", amount: "250 мл" },
     ],
   },
   {
-    id: "bundle-standard", title: { ua: "Готовий набір «Стандарт»", ru: "Готовый набор «Стандарт»" }, price: 580,
-    description: { ua: "Стандартний набір засобів для хімчистки меблів, сидінь авто та килимів. Цих засобів буде достатньо для хімчистки 35–45 диванів. Ціна вже з доставкою по Польщі.", ru: "Стандартный набор средств для химчистки мебели, сидений авто и ковров. Средств будет достаточно для химчистки 35–45 диванов. Цена уже с доставкой по Польше." },
+    id: "bundle-standard",
+    title: { ua: "Готовий набір «Стандарт»", ru: "Готовый набор «Стандарт»" },
+    price: 580,
+    description: {
+      ua: "Стандартний набір засобів для хімчистки меблів, сидінь авто та килимів. Цих засобів буде достатньо для хімчистки 35–45 диванів. Ціна вже з доставкою по Польщі.",
+      ru: "Стандартный набор средств для химчистки мебели, сидений авто и ковров. Средств будет достаточно для химчистки 35–45 диванов. Цена уже с доставкой по Польше.",
+    },
     items: [
-      {productId:"21",name:"Global Enzym",amount:"300 г"},{productId:"21",name:"Global Enzym",amount:"1 кг"},{productId:"19",name:"Global Extraction",amount:"1 кг"},{productId:"17",name:"Global Acid Ocean",amount:"5 л"},{productId:"16",name:"Global Urine",amount:"1 л"},{productId:"24",name:"Global Sta Kill",amount:"1 л"},{productId:"28",name:"World of Clean Eco POG",amount:"500 мл"},{productId:"27",name:"World of Clean Solution M Power",amount:"500 мл"},{productId:"25",name:"Global OxyGo",amount:"500 мл"},{productId:"30",name:"World of Clean SPM Atlantic Breeze",amount:"500 г"},{productId:"4",name:"Лакмусові папірці",amount:"1 шт"},
+      { productId: "21", name: "Global Enzym", amount: "300 г" },
+      { productId: "21", name: "Global Enzym", amount: "1 кг" },
+      { productId: "19", name: "Global Extraction", amount: "1 кг" },
+      { productId: "17", name: "Global Acid Ocean", amount: "5 л" },
+      { productId: "16", name: "Global Urine", amount: "1 л" },
+      { productId: "24", name: "Global Sta Kill", amount: "1 л" },
+      { productId: "28", name: "World of Clean Eco POG", amount: "500 мл" },
+      {
+        productId: "27",
+        name: "World of Clean Solution M Power",
+        amount: "500 мл",
+      },
+      { productId: "25", name: "Global OxyGo", amount: "500 мл" },
+      {
+        productId: "30",
+        name: "World of Clean SPM Atlantic Breeze",
+        amount: "500 г",
+      },
+      { productId: "4", name: "Лакмусові папірці", amount: "1 шт" },
     ],
   },
   {
-    id: "bundle-expert", title: { ua: "Готовий набір «Експерт»", ru: "Готовый набор «Эксперт»" }, price: 640,
-    description: { ua: "Набір «Експерт» — майстер хімчистки. Цих засобів буде достатньо для хімчистки 35–45 диванів. Ціна вже з доставкою по Польщі.", ru: "Набор «Эксперт» — мастер химчистки. Средств будет достаточно для химчистки 35–45 диванов. Цена уже с доставкой по Польше." },
+    id: "bundle-expert",
+    title: { ua: "Готовий набір «Експерт»", ru: "Готовый набор «Эксперт»" },
+    price: 640,
+    description: {
+      ua: "Набір «Експерт» — майстер хімчистки. Цих засобів буде достатньо для хімчистки 35–45 диванів. Ціна вже з доставкою по Польщі.",
+      ru: "Набор «Эксперт» — мастер химчистки. Средств будет достаточно для химчистки 35–45 диванов. Цена уже с доставкой по Польше.",
+    },
     items: [
-      {productId:"29",name:"World of Clean Shockwave",amount:"1 кг"},{productId:"30",name:"World of Clean SPM Atlantic Breeze",amount:"500 г"},{productId:"31",name:"World of Clean Blaze",amount:"500 г"},{productId:"28",name:"World of Clean Eco POG",amount:"500 мл"},{productId:"27",name:"World of Clean Solution M Power",amount:"500 мл"},{productId:"26",name:"Prochem Stain Pro",amount:"1 л"},{productId:"24",name:"Global Sta Kill",amount:"1 л"},{productId:"17",name:"Global Acid Ocean",amount:"5 л"},{productId:"14",name:"Pro Oxy Blast",amount:"500 мл"},{productId:"15",name:"Clinex Anti Spot",amount:"250 мл"},{productId:"19",name:"Global Extraction",amount:"1 кг"},{productId:"23",name:"Global Single Pass",amount:"500 г"},{productId:"16",name:"Global Urine",amount:"1 л"},{productId:"4",name:"Лакмусові папірці",amount:"1 шт"},
+      { productId: "29", name: "World of Clean Shockwave", amount: "1 кг" },
+      {
+        productId: "30",
+        name: "World of Clean SPM Atlantic Breeze",
+        amount: "500 г",
+      },
+      { productId: "31", name: "World of Clean Blaze", amount: "500 г" },
+      { productId: "28", name: "World of Clean Eco POG", amount: "500 мл" },
+      {
+        productId: "27",
+        name: "World of Clean Solution M Power",
+        amount: "500 мл",
+      },
+      { productId: "26", name: "Prochem Stain Pro", amount: "1 л" },
+      { productId: "24", name: "Global Sta Kill", amount: "1 л" },
+      { productId: "17", name: "Global Acid Ocean", amount: "5 л" },
+      { productId: "14", name: "Pro Oxy Blast", amount: "500 мл" },
+      { productId: "15", name: "Clinex Anti Spot", amount: "250 мл" },
+      { productId: "19", name: "Global Extraction", amount: "1 кг" },
+      { productId: "23", name: "Global Single Pass", amount: "500 г" },
+      { productId: "16", name: "Global Urine", amount: "1 л" },
+      { productId: "4", name: "Лакмусові папірці", amount: "1 шт" },
     ],
   },
   {
-    id: "bundle-auto", title: { ua: "Готовий набір «Для хімчистки авто»", ru: "Готовый набор «Для химчистки авто»" }, price: 505,
-    description: { ua: "Комплект засобів для професійної хімчистки авто. Все необхідне в одному наборі. Ціна вже з доставкою по Польщі.", ru: "Комплект средств для профессиональной химчистки авто. Всё необходимое в одном наборе. Цена уже с доставкой по Польше." },
+    id: "bundle-auto",
+    title: {
+      ua: "Готовий набір «Для хімчистки авто»",
+      ru: "Готовый набор «Для химчистки авто»",
+    },
+    price: 505,
+    description: {
+      ua: "Комплект засобів для професійної хімчистки авто. Все необхідне в одному наборі. Ціна вже з доставкою по Польщі.",
+      ru: "Комплект средств для профессиональной химчистки авто. Всё необходимое в одном наборе. Цена уже с доставкой по Польше.",
+    },
     items: [
-      {productId:"21",name:"Global Enzym",amount:"1 кг"},{productId:"19",name:"Global Extraction",amount:"1 кг"},{productId:"13",name:"Koch Chemie Pol Star",amount:"1 л"},{productId:"11",name:"Koch Chemie Mehrzweckreiniger (MZR)",amount:"1 л"},{productId:"3",name:"Work Stuff Піноутворювач",amount:"1 шт"},{productId:"7",name:"Work Stuff Scrub",amount:"1 шт"},{productId:"34",name:"ADBL Tickler",amount:"1 шт"},{productId:"35",name:"Щітка",amount:"1 шт"},{productId:"12",name:"Koch Chemie Leather Star",amount:"1 л"},{productId:"40",name:"Fresso Interior Dressing",amount:"500 мл"},{productId:"50",name:"Fresso Glass Cleaner",amount:"500 мл"},{productId:"63",name:"Work Stuff Розпилювач",amount:"1 л"},{productId:"5",name:"Мікрофібра 40×40",amount:"1 шт"},
+      { productId: "21", name: "Global Enzym", amount: "1 кг" },
+      { productId: "19", name: "Global Extraction", amount: "1 кг" },
+      { productId: "13", name: "Koch Chemie Pol Star", amount: "1 л" },
+      {
+        productId: "11",
+        name: "Koch Chemie Mehrzweckreiniger (MZR)",
+        amount: "1 л",
+      },
+      { productId: "3", name: "Work Stuff Піноутворювач", amount: "1 шт" },
+      { productId: "7", name: "Work Stuff Scrub", amount: "1 шт" },
+      { productId: "34", name: "ADBL Tickler", amount: "1 шт" },
+      { productId: "35", name: "Щітка", amount: "1 шт" },
+      { productId: "12", name: "Koch Chemie Leather Star", amount: "1 л" },
+      { productId: "40", name: "Fresso Interior Dressing", amount: "500 мл" },
+      { productId: "50", name: "Fresso Glass Cleaner", amount: "500 мл" },
+      { productId: "63", name: "Work Stuff Розпилювач", amount: "1 л" },
+      { productId: "5", name: "Мікрофібра 40×40", amount: "1 шт" },
     ],
   },
 ];
@@ -227,35 +390,92 @@ const PROBLEM_PRODUCT_IDS: Record<string, string[]> = {
 const BRAND_PRODUCT_IDS: Record<string, string[]> = {
   brandChemspec: ["76", "78", "77", "79", "81", "46", "80"],
   brandWorldOfClean: ["29", "31", "30", "28", "74", "27", "10"],
-  brandGlobal: ["21", "19", "22", "23", "16", "17", "41", "24", "51", "72", "25", "42", "20", "8", "75"],
+  brandGlobal: [
+    "21",
+    "19",
+    "22",
+    "23",
+    "16",
+    "17",
+    "41",
+    "24",
+    "51",
+    "72",
+    "25",
+    "42",
+    "20",
+    "8",
+    "75",
+  ],
 };
 
 function problemsForProduct(id: string) {
-  return ["general", ...Object.entries(PROBLEM_PRODUCT_IDS).filter(([, ids]) => ids.includes(id)).map(([problem]) => problem)];
+  return [
+    "general",
+    ...Object.entries(PROBLEM_PRODUCT_IDS)
+      .filter(([, ids]) => ids.includes(id))
+      .map(([problem]) => problem),
+  ];
 }
 
 function inferChemistryGroups(text: string) {
   const s = text.toLowerCase();
   const groups: string[] = [];
   if (/пре-спрей|преспрей|попередн|pre.?spray/.test(s)) groups.push("prespray");
-  if (/основн(ий|ое|ого) миюч|екстракторн(ого|ое) чищ|миючий засіб|моющее средство/.test(s)) groups.push("detergents");
-  if (/кислотн.*ополіск|кислотн.*ополаск|зменшення ph|сниження ph|для промивки/.test(s)) groups.push("acidRinses");
-  if (/плямовивід|пятновывод|видалення .*плям|удаления .*пятен|відбілювач|отбеливатель|кров|ірж|ржав|кава|кофе|вино|ручк|маркер|фарб|краск/.test(s)) groups.push("stainRemovers");
-  if (/нейтраліз.*запах|нейтрализ.*запах|неприємн.*запах|плісняв|плесен|ароматизатор/.test(s)) groups.push("odorNeutralizers");
-  if (/авто|автомоб|інтер.?єр|интерьер|шкір|кож|пластик|скл|стекл|детейл/.test(s)) groups.push("carChemistry");
+  if (
+    /основн(ий|ое|ого) миюч|екстракторн(ого|ое) чищ|миючий засіб|моющее средство/.test(
+      s,
+    )
+  )
+    groups.push("detergents");
+  if (
+    /кислотн.*ополіск|кислотн.*ополаск|зменшення ph|сниження ph|для промивки/.test(
+      s,
+    )
+  )
+    groups.push("acidRinses");
+  if (
+    /плямовивід|пятновывод|видалення .*плям|удаления .*пятен|відбілювач|отбеливатель|кров|ірж|ржав|кава|кофе|вино|ручк|маркер|фарб|краск/.test(
+      s,
+    )
+  )
+    groups.push("stainRemovers");
+  if (
+    /нейтраліз.*запах|нейтрализ.*запах|неприємн.*запах|плісняв|плесен|ароматизатор/.test(
+      s,
+    )
+  )
+    groups.push("odorNeutralizers");
+  if (
+    /авто|автомоб|інтер.?єр|интерьер|шкір|кож|пластик|скл|стекл|детейл/.test(s)
+  )
+    groups.push("carChemistry");
   return groups.length ? [...new Set(groups)] : ["detergents"];
 }
 
 function mapProduct(row: Record<string, unknown>): Product {
-  let variants: Array<{size?:string;price?:number}> = [];
+  let variants: Array<{ size?: string; price?: number }> = [];
   try {
-    const parsed = typeof row.variants === "string" ? JSON.parse(row.variants) : row.variants;
-    variants = Array.isArray(parsed) ? parsed.filter((variant): variant is {size?:string;price?:number} => Boolean(variant) && typeof variant === "object") : [];
+    const parsed =
+      typeof row.variants === "string"
+        ? JSON.parse(row.variants)
+        : row.variants;
+    variants = Array.isArray(parsed)
+      ? parsed.filter(
+          (variant): variant is { size?: string; price?: number } =>
+            Boolean(variant) && typeof variant === "object",
+        )
+      : [];
   } catch {
     variants = [];
   }
   const basePrice = Number(row.price) || 0;
-  const sizes = variants.length ? variants.map(v => ({label: v.size || "1 шт.", price: Number(v.price) || basePrice})) : [{label:"1 шт.",price:basePrice}];
+  const sizes = variants.length
+    ? variants.map((v) => ({
+        label: v.size || "1 шт.",
+        price: Number(v.price) || basePrice,
+      }))
+    : [{ label: "1 шт.", price: basePrice }];
   const id = String(row.id);
   const ua = String(row.description || row.short_desc || "");
   const ru = String(row.description_ru || ua);
@@ -264,7 +484,8 @@ function mapProduct(row: Record<string, unknown>): Product {
   const image = String(row.image_url || "");
   let gallery: string[] = [];
   try {
-    const parsed = typeof row.images === "string" ? JSON.parse(row.images) : row.images;
+    const parsed =
+      typeof row.images === "string" ? JSON.parse(row.images) : row.images;
     gallery = Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
   } catch {
     gallery = [];
@@ -273,28 +494,55 @@ function mapProduct(row: Record<string, unknown>): Product {
   const chemistryGroups = Array.isArray(row.chemistry_groups)
     ? row.chemistry_groups.map(String)
     : inferChemistryGroups(`${name} ${row.short_desc} ${ua}`);
-  return { id, name, nameRu, brand:String(row.brand || "Професійна серія"), image:images[0] || "", images, category:String(row.category || "chemistry"), problem:problemsForProduct(id), price:Math.min(...sizes.map(v=>v.price)), sizes, status:row.in_stock === false || row.in_stock === "false" ? "waiting" : "available", description:{ua,ru}, chemistryGroups };
+  return {
+    id,
+    name,
+    nameRu,
+    brand: String(row.brand || "Професійна серія"),
+    image: images[0] || "",
+    images,
+    category: String(row.category || "chemistry"),
+    problem: problemsForProduct(id),
+    price: Math.min(...sizes.map((v) => v.price)),
+    sizes,
+    status:
+      row.in_stock === false || row.in_stock === "false"
+        ? "waiting"
+        : "available",
+    description: { ua, ru },
+    chemistryGroups,
+  };
 }
 
 function mapBundle(row: Record<string, unknown>): Bundle {
   let items: BundleItem[] = [];
   try {
-    const parsed = typeof row.bundle_items === "string" ? JSON.parse(row.bundle_items) : row.bundle_items;
-    items = Array.isArray(parsed) ? parsed.map((item: Record<string, unknown>) => ({
-      productId: String(item.productId || item.product_id || ""),
-      name: String(item.name || "Товар"),
-      amount: String(item.amount || "1 шт"),
-      qty: Number(item.qty) || 1,
-      pricePln: Number(item.pricePln || item.price_pln) || undefined,
-      priceEur: Number(item.priceEur || item.price_eur) || undefined,
-    })).filter(item => item.productId) : [];
+    const parsed =
+      typeof row.bundle_items === "string"
+        ? JSON.parse(row.bundle_items)
+        : row.bundle_items;
+    items = Array.isArray(parsed)
+      ? parsed
+          .map((item: Record<string, unknown>) => ({
+            productId: String(item.productId || item.product_id || ""),
+            name: String(item.name || "Товар"),
+            amount: String(item.amount || "1 шт"),
+            qty: Number(item.qty) || 1,
+            pricePln: Number(item.pricePln || item.price_pln) || undefined,
+            priceEur: Number(item.priceEur || item.price_eur) || undefined,
+          }))
+          .filter((item) => item.productId)
+      : [];
   } catch {
     items = [];
   }
   const ua = String(row.description || "");
   return {
     id: String(row.id),
-    title: { ua: String(row.name || "Готовий набір"), ru: String(row.name_ru || row.name || "Готовый набор") },
+    title: {
+      ua: String(row.name || "Готовий набір"),
+      ru: String(row.name_ru || row.name || "Готовый набор"),
+    },
     price: Number(row.price) || 0,
     description: { ua, ru: String(row.description_ru || ua) },
     items,
@@ -302,63 +550,318 @@ function mapBundle(row: Record<string, unknown>): Bundle {
   };
 }
 
-const productName = (product: Product, lang: Language) => lang === "ru" ? product.nameRu : product.name;
+const productName = (product: Product, lang: Language) =>
+  lang === "ru" ? product.nameRu : product.name;
 
 const copy = {
   ua: {
-    catalog: "Каталог", sets: "Готові набори", videos: "Відеопояснення", training: "Навчання", cart: "Кошик",
-    eyebrow: "ПРОФЕСІЙНА ХІМІЯ ДЛЯ ХІМЧИСТКИ МЕБЛІВ", hero: "Засоби, які майстер перевірив у роботі",
-    heroText: "Оберіть проблему — ми покажемо відповідні засоби. Простими словами, без складних професійних термінів.", choose: "Підібрати засіб", openCatalog: "Перейти до каталогу",
-    checked: "Перевірено майстром", simple: "Пояснюємо просто", europe: "Доставка Україною та Європою",
-    problemTitle: "Що потрібно видалити?", problemText: "Оберіть проблему — покажемо відповідні товари", all: "Усі товари", urine: "Сеча та запах", blood: "Кров", grease: "Жирні плями", drinks: "Кава та вино", pets: "Сліди тварин", unsure: "Не знаю, що обрати",
-    catalogTitle: "Каталог товарів", catalogText: "Спочатку оберіть розділ, а потім потрібну підкатегорію.", professionalCatalog:"ПРОФЕСІЙНИЙ КАТАЛОГ", chemistry: "Хімія", inventory: "Інвентар для хімчистки", equipment: "Обладнання",
-    chemistryHint:"Професійні засоби для меблів, килимів та салону авто", inventoryHint:"Щітки, розпилювачі, мікрофібри та робочі аксесуари", equipmentHint:"Техніка для хімчистки меблів, авто та миття вікон", videosHint:"Практичні пояснення про хімію та обладнання", setsHint:"Зібрані комплекти для швидкого старту", trainingHint:"Навчальні матеріали та програми майстра",
-    equipmentCatalog:"Обладнання для хімчистки меблів і авто", videoExplanations:"Відео пояснення", starterSets:"Готові стартові набори хімії",
-    prespray:"Пре-спреї", detergents:"Основні миючі засоби", acidRinses:"Кислотні ополіскувачі", stainRemovers:"Плямовивідники", odorNeutralizers:"Нейтралізатори запахів", carChemistry:"Засоби для хімчистки авто",
-    furnitureEquipment:"Для хімчистки меблів і авто", windowEquipment:"Для миття вікон", chemistryVideos:"Про хімію", equipmentVideos:"Про обладнання та миття вікон", sectionSoon:"Цей розділ уже підготовлений у структурі сайту. Товари й матеріали додамо наступним етапом.", backToAll:"Показати всі товари",
-    available: "У наявності", low: "Закінчується", waiting: "Очікуємо постачання", from: "від", size: "Фасування", add: "Додати в кошик", added: "Додано",
-    details: "Детальніше", loading:"Завантажуємо каталог…", fullDescription:"Про товар",
-    cartTitle: "Ваш кошик", cartEmpty: "Кошик поки порожній", cartHint: "Товари зберігатимуться на цьому пристрої 24 години.", clear: "Очистити кошик", total: "Разом", continue: "Продовжити вибір", close: "Закрити", remove: "Видалити",
-    checkout: "Оформити замовлення", checkoutTitle: "Дані для замовлення", name: "Ім’я та прізвище", phone: "Номер телефону", telegram: "Telegram", delivery: "Спосіб доставки", post: "Поштове відправлення", courier: "Кур’єр", pickup: "Самовивіз", agreeDelivery: "Узгодити з менеджером", country: "Країна", city: "Місто", destination: "Відділення пошти або адреса", sendOrder: "Надіслати замовлення", sending: "Надсилаємо…", orderSuccess: "Замовлення успішно надіслано", orderSuccessText:"Віталій уже отримав ваше замовлення. Щоб швидше узгодити наявність і доставку, напишіть йому в Telegram.", contactVitalii:"Написати Віталію в Telegram", telegramMessage:"Добрий день! Я сформував кошик на сайті та хочу оформити замовлення.", closeSuccess:"Закрити", orderError: "Не вдалося надіслати замовлення. Спробуйте ще раз.", required: "Заповніть обов’язкові поля.", backToCart: "Повернутися до кошика",
-    trainingTitle:"Курс із професійної хімчистки", trainingText:"Практичне навчання Віталія: робота з хімією, обладнанням і складними забрудненнями.", openCourse:"Перейти на сторінку курсу", followMaster:"Віталій у соцмережах", contactsText:"Відео, практичні поради та робочі приклади з хімчистки.",
-    videoLibrary:"База практичних відео", videoTitle:"Дивіться, як майстер працює з хімією та обладнанням", videoText:"Короткі пояснення без зайвої теорії: вибір засобу, правильне розведення, техніка роботи й типові помилки.", videoChemistryText:"Застосування засобів, готові набори, пропорції та робота зі складними плямами.", videoEquipmentText:"Налаштування техніки, догляд за обладнанням і практичні прийоми.", openYoutube:"Перейти на YouTube-канал", watchVideo:"Дивитися відео", closeVideo:"Закрити відео",
-    searchProducts:"Пошук товару за назвою", shownProducts:"Показано", ofProducts:"із", productsWord:"товарів", openFullCatalog:"Переглянути весь каталог", showMoreProducts:"Показати ще товари", noProducts:"За цим запитом товарів не знайдено",
+    catalog: "Каталог",
+    sets: "Готові набори",
+    videos: "Відеопояснення",
+    training: "Навчання",
+    cart: "Кошик",
+    eyebrow: "ПРОФЕСІЙНА ХІМІЯ ДЛЯ ХІМЧИСТКИ МЕБЛІВ",
+    hero: "Засоби, які майстер перевірив у роботі",
+    heroText:
+      "Оберіть проблему — ми покажемо відповідні засоби. Простими словами, без складних професійних термінів.",
+    choose: "Підібрати засіб",
+    openCatalog: "Перейти до каталогу",
+    checked: "Перевірено майстром",
+    simple: "Пояснюємо просто",
+    europe: "Доставка Україною та Європою",
+    problemTitle: "Що потрібно видалити?",
+    problemText: "Оберіть проблему — покажемо відповідні товари",
+    all: "Усі товари",
+    urine: "Сеча та запах",
+    blood: "Кров",
+    grease: "Жирні плями",
+    drinks: "Кава та вино",
+    pets: "Сліди тварин",
+    unsure: "Не знаю, що обрати",
+    catalogTitle: "Каталог товарів",
+    catalogText: "Спочатку оберіть розділ, а потім потрібну підкатегорію.",
+    professionalCatalog: "ПРОФЕСІЙНИЙ КАТАЛОГ",
+    chemistry: "Хімія",
+    inventory: "Інвентар для хімчистки",
+    equipment: "Обладнання",
+    chemistryHint: "Професійні засоби для меблів, килимів та салону авто",
+    inventoryHint: "Щітки, розпилювачі, мікрофібри та робочі аксесуари",
+    equipmentHint: "Техніка для хімчистки меблів, авто та миття вікон",
+    videosHint: "Практичні пояснення про хімію та обладнання",
+    setsHint: "Зібрані комплекти для швидкого старту",
+    trainingHint: "Навчальні матеріали та програми майстра",
+    equipmentCatalog: "Обладнання для хімчистки меблів і авто",
+    videoExplanations: "Відео пояснення",
+    starterSets: "Готові стартові набори хімії",
+    prespray: "Пре-спреї",
+    detergents: "Основні миючі засоби",
+    acidRinses: "Кислотні ополіскувачі",
+    stainRemovers: "Плямовивідники",
+    odorNeutralizers: "Нейтралізатори запахів",
+    carChemistry: "Засоби для хімчистки авто",
+    furnitureEquipment: "Для хімчистки меблів і авто",
+    windowEquipment: "Для миття вікон",
+    chemistryVideos: "Про хімію",
+    equipmentVideos: "Про обладнання та миття вікон",
+    sectionSoon:
+      "Цей розділ уже підготовлений у структурі сайту. Товари й матеріали додамо наступним етапом.",
+    backToAll: "Показати всі товари",
+    available: "У наявності",
+    low: "Закінчується",
+    waiting: "Очікуємо постачання",
+    from: "від",
+    size: "Фасування",
+    add: "Додати в кошик",
+    added: "Додано",
+    details: "Детальніше",
+    loading: "Завантажуємо каталог…",
+    fullDescription: "Про товар",
+    cartTitle: "Ваш кошик",
+    cartEmpty: "Кошик поки порожній",
+    cartHint: "Товари зберігатимуться на цьому пристрої 24 години.",
+    clear: "Очистити кошик",
+    total: "Разом",
+    continue: "Продовжити вибір",
+    close: "Закрити",
+    remove: "Видалити",
+    checkout: "Оформити замовлення",
+    checkoutTitle: "Дані для замовлення",
+    name: "Ім’я та прізвище",
+    phone: "Номер телефону",
+    telegram: "Telegram",
+    delivery: "Спосіб доставки",
+    post: "Поштове відправлення",
+    courier: "Кур’єр",
+    pickup: "Самовивіз",
+    agreeDelivery: "Узгодити з менеджером",
+    country: "Країна",
+    city: "Місто",
+    destination: "Відділення пошти або адреса",
+    sendOrder: "Надіслати замовлення",
+    sending: "Надсилаємо…",
+    orderSuccess: "Замовлення успішно надіслано",
+    orderSuccessText:
+      "Віталій уже отримав ваше замовлення. Щоб швидше узгодити наявність і доставку, напишіть йому в Telegram.",
+    contactVitalii: "Написати Віталію в Telegram",
+    telegramMessage:
+      "Добрий день! Я сформував кошик на сайті та хочу оформити замовлення.",
+    closeSuccess: "Закрити",
+    orderError: "Не вдалося надіслати замовлення. Спробуйте ще раз.",
+    required: "Заповніть обов’язкові поля.",
+    backToCart: "Повернутися до кошика",
+    trainingTitle: "Курс із професійної хімчистки",
+    trainingText:
+      "Практичне навчання Віталія: робота з хімією, обладнанням і складними забрудненнями.",
+    openCourse: "Перейти на сторінку курсу",
+    followMaster: "Віталій у соцмережах",
+    contactsText: "Відео, практичні поради та робочі приклади з хімчистки.",
+    videoLibrary: "База практичних відео",
+    videoTitle: "Дивіться, як майстер працює з хімією та обладнанням",
+    videoText:
+      "Короткі пояснення без зайвої теорії: вибір засобу, правильне розведення, техніка роботи й типові помилки.",
+    videoChemistryText:
+      "Застосування засобів, готові набори, пропорції та робота зі складними плямами.",
+    videoEquipmentText:
+      "Налаштування техніки, догляд за обладнанням і практичні прийоми.",
+    openYoutube: "Перейти на YouTube-канал",
+    watchVideo: "Дивитися відео",
+    closeVideo: "Закрити відео",
+    searchProducts: "Пошук товару за назвою",
+    shownProducts: "Показано",
+    ofProducts: "із",
+    productsWord: "товарів",
+    openFullCatalog: "Переглянути весь каталог",
+    showMoreProducts: "Показати ще товари",
+    noProducts: "За цим запитом товарів не знайдено",
   },
   ru: {
-    catalog: "Каталог", sets: "Готовые наборы", videos: "Видеообъяснения", training: "Обучение", cart: "Корзина",
-    eyebrow: "ПРОФЕССИОНАЛЬНАЯ ХИМИЯ ДЛЯ ХИМЧИСТКИ МЕБЕЛИ", hero: "Средства, которые мастер проверил в работе",
-    heroText: "Выберите проблему — мы покажем подходящие средства. Простыми словами, без сложных профессиональных терминов.", choose: "Подобрать средство", openCatalog: "Перейти в каталог",
-    checked: "Проверено мастером", simple: "Объясняем просто", europe: "Доставка по Украине и Европе",
-    problemTitle: "Что нужно удалить?", problemText: "Выберите проблему — покажем подходящие товары", all: "Все товары", urine: "Моча и запах", blood: "Кровь", grease: "Жирные пятна", drinks: "Кофе и вино", pets: "Следы животных", unsure: "Не знаю, что выбрать",
-    catalogTitle: "Каталог товаров", catalogText: "Сначала выберите раздел, а затем нужную подкатегорию.", professionalCatalog:"ПРОФЕССИОНАЛЬНЫЙ КАТАЛОГ", chemistry: "Химия", inventory: "Инвентарь для химчистки", equipment: "Оборудование",
-    chemistryHint:"Профессиональные средства для мебели, ковров и салона авто", inventoryHint:"Щётки, распылители, микрофибры и рабочие аксессуары", equipmentHint:"Техника для химчистки мебели, авто и мойки окон", videosHint:"Практические объяснения о химии и оборудовании", setsHint:"Собранные комплекты для быстрого старта", trainingHint:"Учебные материалы и программы мастера",
-    equipmentCatalog:"Оборудование для химчистки мебели и авто", videoExplanations:"Видеообъяснения", starterSets:"Готовые стартовые наборы химии",
-    prespray:"Пре-спреи", detergents:"Основные моющие средства", acidRinses:"Кислотные ополаскиватели", stainRemovers:"Пятновыводители", odorNeutralizers:"Нейтрализаторы запахов", carChemistry:"Средства для химчистки авто",
-    furnitureEquipment:"Для химчистки мебели и авто", windowEquipment:"Для мойки окон", chemistryVideos:"О химии", equipmentVideos:"Об оборудовании и мойке окон", sectionSoon:"Этот раздел уже подготовлен в структуре сайта. Товары и материалы добавим на следующем этапе.", backToAll:"Показать все товары",
-    available: "В наличии", low: "Заканчивается", waiting: "Ожидаем поставку", from: "от", size: "Фасовка", add: "Добавить в корзину", added: "Добавлено",
-    details: "Подробнее", loading:"Загружаем каталог…", fullDescription:"О товаре",
-    cartTitle: "Ваша корзина", cartEmpty: "Корзина пока пуста", cartHint: "Товары сохранятся на этом устройстве на 24 часа.", clear: "Очистить корзину", total: "Итого", continue: "Продолжить выбор", close: "Закрыть", remove: "Удалить",
-    checkout: "Оформить заказ", checkoutTitle: "Данные для заказа", name: "Имя и фамилия", phone: "Номер телефона", telegram: "Telegram", delivery: "Способ доставки", post: "Почтовая отправка", courier: "Курьер", pickup: "Самовывоз", agreeDelivery: "Согласовать с менеджером", country: "Страна", city: "Город", destination: "Отделение почты или адрес", sendOrder: "Отправить заказ", sending: "Отправляем…", orderSuccess: "Заказ успешно отправлен", orderSuccessText:"Виталий уже получил ваш заказ. Чтобы быстрее согласовать наличие и доставку, напишите ему в Telegram.", contactVitalii:"Написать Виталию в Telegram", telegramMessage:"Добрый день! Я сформировал корзину на сайте и хочу оформить заказ.", closeSuccess:"Закрыть", orderError: "Не удалось отправить заказ. Попробуйте ещё раз.", required: "Заполните обязательные поля.", backToCart: "Вернуться в корзину",
-    trainingTitle:"Курс по профессиональной химчистке", trainingText:"Практическое обучение Виталия: работа с химией, оборудованием и сложными загрязнениями.", openCourse:"Перейти на страницу курса", followMaster:"Виталий в соцсетях", contactsText:"Видео, практические советы и рабочие примеры из химчистки.",
-    videoLibrary:"База практических видео", videoTitle:"Смотрите, как мастер работает с химией и оборудованием", videoText:"Короткие объяснения без лишней теории: выбор средства, правильное разведение, техника работы и типичные ошибки.", videoChemistryText:"Применение средств, готовые наборы, пропорции и работа со сложными пятнами.", videoEquipmentText:"Настройка техники, уход за оборудованием и практические приёмы.", openYoutube:"Перейти на YouTube-канал", watchVideo:"Смотреть видео", closeVideo:"Закрыть видео",
-    searchProducts:"Поиск товара по названию", shownProducts:"Показано", ofProducts:"из", productsWord:"товаров", openFullCatalog:"Посмотреть весь каталог", showMoreProducts:"Показать ещё товары", noProducts:"По этому запросу товары не найдены",
+    catalog: "Каталог",
+    sets: "Готовые наборы",
+    videos: "Видеообъяснения",
+    training: "Обучение",
+    cart: "Корзина",
+    eyebrow: "ПРОФЕССИОНАЛЬНАЯ ХИМИЯ ДЛЯ ХИМЧИСТКИ МЕБЕЛИ",
+    hero: "Средства, которые мастер проверил в работе",
+    heroText:
+      "Выберите проблему — мы покажем подходящие средства. Простыми словами, без сложных профессиональных терминов.",
+    choose: "Подобрать средство",
+    openCatalog: "Перейти в каталог",
+    checked: "Проверено мастером",
+    simple: "Объясняем просто",
+    europe: "Доставка по Украине и Европе",
+    problemTitle: "Что нужно удалить?",
+    problemText: "Выберите проблему — покажем подходящие товары",
+    all: "Все товары",
+    urine: "Моча и запах",
+    blood: "Кровь",
+    grease: "Жирные пятна",
+    drinks: "Кофе и вино",
+    pets: "Следы животных",
+    unsure: "Не знаю, что выбрать",
+    catalogTitle: "Каталог товаров",
+    catalogText: "Сначала выберите раздел, а затем нужную подкатегорию.",
+    professionalCatalog: "ПРОФЕССИОНАЛЬНЫЙ КАТАЛОГ",
+    chemistry: "Химия",
+    inventory: "Инвентарь для химчистки",
+    equipment: "Оборудование",
+    chemistryHint: "Профессиональные средства для мебели, ковров и салона авто",
+    inventoryHint: "Щётки, распылители, микрофибры и рабочие аксессуары",
+    equipmentHint: "Техника для химчистки мебели, авто и мойки окон",
+    videosHint: "Практические объяснения о химии и оборудовании",
+    setsHint: "Собранные комплекты для быстрого старта",
+    trainingHint: "Учебные материалы и программы мастера",
+    equipmentCatalog: "Оборудование для химчистки мебели и авто",
+    videoExplanations: "Видеообъяснения",
+    starterSets: "Готовые стартовые наборы химии",
+    prespray: "Пре-спреи",
+    detergents: "Основные моющие средства",
+    acidRinses: "Кислотные ополаскиватели",
+    stainRemovers: "Пятновыводители",
+    odorNeutralizers: "Нейтрализаторы запахов",
+    carChemistry: "Средства для химчистки авто",
+    furnitureEquipment: "Для химчистки мебели и авто",
+    windowEquipment: "Для мойки окон",
+    chemistryVideos: "О химии",
+    equipmentVideos: "Об оборудовании и мойке окон",
+    sectionSoon:
+      "Этот раздел уже подготовлен в структуре сайта. Товары и материалы добавим на следующем этапе.",
+    backToAll: "Показать все товары",
+    available: "В наличии",
+    low: "Заканчивается",
+    waiting: "Ожидаем поставку",
+    from: "от",
+    size: "Фасовка",
+    add: "Добавить в корзину",
+    added: "Добавлено",
+    details: "Подробнее",
+    loading: "Загружаем каталог…",
+    fullDescription: "О товаре",
+    cartTitle: "Ваша корзина",
+    cartEmpty: "Корзина пока пуста",
+    cartHint: "Товары сохранятся на этом устройстве на 24 часа.",
+    clear: "Очистить корзину",
+    total: "Итого",
+    continue: "Продолжить выбор",
+    close: "Закрыть",
+    remove: "Удалить",
+    checkout: "Оформить заказ",
+    checkoutTitle: "Данные для заказа",
+    name: "Имя и фамилия",
+    phone: "Номер телефона",
+    telegram: "Telegram",
+    delivery: "Способ доставки",
+    post: "Почтовая отправка",
+    courier: "Курьер",
+    pickup: "Самовывоз",
+    agreeDelivery: "Согласовать с менеджером",
+    country: "Страна",
+    city: "Город",
+    destination: "Отделение почты или адрес",
+    sendOrder: "Отправить заказ",
+    sending: "Отправляем…",
+    orderSuccess: "Заказ успешно отправлен",
+    orderSuccessText:
+      "Виталий уже получил ваш заказ. Чтобы быстрее согласовать наличие и доставку, напишите ему в Telegram.",
+    contactVitalii: "Написать Виталию в Telegram",
+    telegramMessage:
+      "Добрый день! Я сформировал корзину на сайте и хочу оформить заказ.",
+    closeSuccess: "Закрыть",
+    orderError: "Не удалось отправить заказ. Попробуйте ещё раз.",
+    required: "Заполните обязательные поля.",
+    backToCart: "Вернуться в корзину",
+    trainingTitle: "Курс по профессиональной химчистке",
+    trainingText:
+      "Практическое обучение Виталия: работа с химией, оборудованием и сложными загрязнениями.",
+    openCourse: "Перейти на страницу курса",
+    followMaster: "Виталий в соцсетях",
+    contactsText: "Видео, практические советы и рабочие примеры из химчистки.",
+    videoLibrary: "База практических видео",
+    videoTitle: "Смотрите, как мастер работает с химией и оборудованием",
+    videoText:
+      "Короткие объяснения без лишней теории: выбор средства, правильное разведение, техника работы и типичные ошибки.",
+    videoChemistryText:
+      "Применение средств, готовые наборы, пропорции и работа со сложными пятнами.",
+    videoEquipmentText:
+      "Настройка техники, уход за оборудованием и практические приёмы.",
+    openYoutube: "Перейти на YouTube-канал",
+    watchVideo: "Смотреть видео",
+    closeVideo: "Закрыть видео",
+    searchProducts: "Поиск товара по названию",
+    shownProducts: "Показано",
+    ofProducts: "из",
+    productsWord: "товаров",
+    openFullCatalog: "Посмотреть весь каталог",
+    showMoreProducts: "Показать ещё товары",
+    noProducts: "По этому запросу товары не найдены",
   },
 };
 
 function Icon({ name }: { name: string }) {
   const icons: Record<string, React.ReactNode> = {
-    urine: <><path d="M12 2S6 9 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/><path d="M9 15c.7 1.6 1.8 2.3 3.4 2.1"/></>,
-    blood: <path d="M12 2S6 9.2 6 14a6 6 0 0 0 12 0c0-4.8-6-12-6-12Z"/>,
-    grease: <><path d="m7 4 2 3-3 2 3 2-2 4 4-1 2 4 2-4 4 1-2-4 3-2-4-1-1-4-3 2Z"/></>,
-    drinks: <><path d="M6 3h9l-1 8a4 4 0 0 1-7 0L6 3Z"/><path d="M10.5 14v7M7 21h7"/></>,
-    pets: <><circle cx="7" cy="8" r="2"/><circle cx="17" cy="8" r="2"/><circle cx="4" cy="13" r="2"/><circle cx="20" cy="13" r="2"/><path d="M8 20c-3-2-2-7 4-7s7 5 4 7c-2 2-6 2-8 0Z"/></>,
-    unsure: <><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.5 2.1c-1 .5-1.3 1.2-1.3 2.2M12 17h.01"/></>,
+    urine: (
+      <>
+        <path d="M12 2S6 9 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z" />
+        <path d="M9 15c.7 1.6 1.8 2.3 3.4 2.1" />
+      </>
+    ),
+    blood: <path d="M12 2S6 9.2 6 14a6 6 0 0 0 12 0c0-4.8-6-12-6-12Z" />,
+    grease: (
+      <>
+        <path d="m7 4 2 3-3 2 3 2-2 4 4-1 2 4 2-4 4 1-2-4 3-2-4-1-1-4-3 2Z" />
+      </>
+    ),
+    drinks: (
+      <>
+        <path d="M6 3h9l-1 8a4 4 0 0 1-7 0L6 3Z" />
+        <path d="M10.5 14v7M7 21h7" />
+      </>
+    ),
+    pets: (
+      <>
+        <circle cx="7" cy="8" r="2" />
+        <circle cx="17" cy="8" r="2" />
+        <circle cx="4" cy="13" r="2" />
+        <circle cx="20" cy="13" r="2" />
+        <path d="M8 20c-3-2-2-7 4-7s7 5 4 7c-2 2-6 2-8 0Z" />
+      </>
+    ),
+    unsure: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.8 9a2.4 2.4 0 1 1 3.5 2.1c-1 .5-1.3 1.2-1.3 2.2M12 17h.01" />
+      </>
+    ),
+    trustChecked: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.6 2.7L16.5 9" />
+      </>
+    ),
+    trustSimple: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 10.8v5M12 7.5h.01" />
+      </>
+    ),
+    trustDelivery: (
+      <>
+        <path d="M3 6h11v10H3zM14 9h3l3 3v4h-6z" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="17" cy="18" r="2" />
+      </>
+    ),
   };
-  return <svg viewBox="0 0 24 24" aria-hidden="true">{icons[name]}</svg>;
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {icons[name]}
+    </svg>
+  );
 }
 
 export default function Home() {
   const [lang, setLang] = useState<Language>("ua");
+  const [currency, setCurrency] = useState<Currency>("PLN");
+  const [eurRate, setEurRate] = useState(DEFAULT_EUR_RATE);
   const [category, setCategory] = useState("all");
   const [subCategory, setSubCategory] = useState("all");
   const [problem, setProblem] = useState("all");
@@ -379,58 +882,212 @@ export default function Home() {
   const t = copy[lang];
 
   useEffect(() => {
-    const savedLanguage = localStorage.getItem("cleantapi-language") as Language | null;
+    const savedLanguage = localStorage.getItem(
+      "cleantapi-language",
+    ) as Language | null;
+    const savedCurrency = localStorage.getItem(CURRENCY_KEY) as Currency | null;
     // Restore browser-only preferences after hydration.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (savedLanguage === "ua" || savedLanguage === "ru") setLang(savedLanguage);
+    if (savedLanguage === "ua" || savedLanguage === "ru")
+      setLang(savedLanguage);
+    if (savedCurrency === "PLN" || savedCurrency === "EUR")
+      setCurrency(savedCurrency);
+    try {
+      const cachedRate = JSON.parse(
+        localStorage.getItem(EUR_RATE_KEY) || "null",
+      ) as { rate?: number } | null;
+      if (cachedRate?.rate && cachedRate.rate > 3 && cachedRate.rate < 6)
+        setEurRate(cachedRate.rate);
+    } catch {
+      localStorage.removeItem(EUR_RATE_KEY);
+    }
     try {
       const saved = JSON.parse(localStorage.getItem(CART_KEY) || "null");
-      if (saved?.expiresAt > Date.now() && Array.isArray(saved.items)) setCart(saved.items);
+      if (saved?.expiresAt > Date.now() && Array.isArray(saved.items))
+        setCart(saved.items);
       else localStorage.removeItem(CART_KEY);
-    } catch { localStorage.removeItem(CART_KEY); }
+    } catch {
+      localStorage.removeItem(CART_KEY);
+    }
     setCartHydrated(true);
     fetch(`/api/products`)
-      .then(r => r.ok ? r.json() : Promise.reject(new Error("catalog")))
-      .then(rows => {
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("catalog"))))
+      .then((rows) => {
         if (!Array.isArray(rows)) return;
-        const activeRows = rows.filter(row => row.active !== false && row.active !== "false");
-        setProducts(activeRows.filter(row => row.category !== "sets" && row.product_type !== "bundle").map(mapProduct));
-        setBundles(activeRows.filter(row => row.category === "sets" || row.product_type === "bundle").map(mapBundle));
+        const activeRows = rows.filter(
+          (row) => row.active !== false && row.active !== "false",
+        );
+        setProducts(
+          activeRows
+            .filter(
+              (row) => row.category !== "sets" && row.product_type !== "bundle",
+            )
+            .map(mapProduct),
+        );
+        setBundles(
+          activeRows
+            .filter(
+              (row) => row.category === "sets" || row.product_type === "bundle",
+            )
+            .map(mapBundle),
+        );
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    fetch("/api/exchange-rate")
+      .then((response) =>
+        response.ok
+          ? response.json()
+          : Promise.reject(new Error("exchange-rate")),
+      )
+      .then((result: { rate?: number; effectiveDate?: string }) => {
+        const rate = Number(result.rate);
+        if (rate > 3 && rate < 6) {
+          setEurRate(rate);
+          localStorage.setItem(
+            EUR_RATE_KEY,
+            JSON.stringify({
+              rate,
+              effectiveDate: result.effectiveDate || "",
+              savedAt: Date.now(),
+            }),
+          );
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  useEffect(() => { localStorage.setItem("cleantapi-language", lang); }, [lang]);
+  useEffect(() => {
+    localStorage.setItem("cleantapi-language", lang);
+  }, [lang]);
+  useEffect(() => {
+    localStorage.setItem(CURRENCY_KEY, currency);
+  }, [currency]);
   useEffect(() => {
     if (!cartHydrated) return;
-    if (cart.length) localStorage.setItem(CART_KEY, JSON.stringify({ items: cart, expiresAt: Date.now() + CART_TTL }));
+    if (cart.length)
+      localStorage.setItem(
+        CART_KEY,
+        JSON.stringify({ items: cart, expiresAt: Date.now() + CART_TTL }),
+      );
     else localStorage.removeItem(CART_KEY);
   }, [cart, cartHydrated]);
 
-  const filtered = useMemo(() => products.filter((p) => {
-    const sectionMatch = category === "all" || (category === "chemistry" && p.category === "chemistry") || (category === "inventory" && ["tools","accessories"].includes(p.category)) || (category === "equipment" && ((subCategory === "windowEquipment" && p.category === "window-equipment") || (subCategory !== "windowEquipment" && p.category === "equipment")));
-    const brandIds = BRAND_PRODUCT_IDS[subCategory];
-    const subMatch = category !== "chemistry" || subCategory === "all" || (brandIds ? brandIds.includes(p.id) : p.chemistryGroups.includes(subCategory));
-    const searchMatch = !search.trim() || `${productName(p,lang)} ${p.brand}`.toLocaleLowerCase(lang === "ua" ? "uk" : "ru").includes(search.trim().toLocaleLowerCase(lang === "ua" ? "uk" : "ru"));
-    return sectionMatch && subMatch && searchMatch && (problem === "all" || problem === "unsure" || p.problem.includes(problem));
-  }), [products, category, subCategory, problem, search, lang]);
+  const filtered = useMemo(
+    () =>
+      products.filter((p) => {
+        const sectionMatch =
+          category === "all" ||
+          (category === "chemistry" && p.category === "chemistry") ||
+          (category === "inventory" &&
+            ["tools", "accessories"].includes(p.category)) ||
+          (category === "equipment" &&
+            ((subCategory === "windowEquipment" &&
+              p.category === "window-equipment") ||
+              (subCategory !== "windowEquipment" &&
+                p.category === "equipment")));
+        const brandIds = BRAND_PRODUCT_IDS[subCategory];
+        const subMatch =
+          category !== "chemistry" ||
+          subCategory === "all" ||
+          (brandIds
+            ? brandIds.includes(p.id)
+            : p.chemistryGroups.includes(subCategory));
+        const searchMatch =
+          !search.trim() ||
+          `${productName(p, lang)} ${p.brand}`
+            .toLocaleLowerCase(lang === "ua" ? "uk" : "ru")
+            .includes(
+              search.trim().toLocaleLowerCase(lang === "ua" ? "uk" : "ru"),
+            );
+        return (
+          sectionMatch &&
+          subMatch &&
+          searchMatch &&
+          (problem === "all" ||
+            problem === "unsure" ||
+            p.problem.includes(problem))
+        );
+      }),
+    [products, category, subCategory, problem, search, lang],
+  );
   const visibleProducts = filtered.slice(0, visibleCount);
-  const bundleProducts = useMemo<Product[]>(() => bundles.map(bundle => ({ id:bundle.id, name:bundle.title.ua, nameRu:bundle.title.ru, brand:lang === "ua" ? "Готовий набір" : "Готовый набор", image:products.find(p=>p.id===bundle.items[0]?.productId)?.image || "", images:[], category:"sets", problem:[], price:bundle.price, sizes:[{label:lang === "ua" ? "1 набір" : "1 набор",price:bundle.price}], status:"available", description:bundle.description, chemistryGroups:[] })), [products, bundles, lang]);
-  const orderProducts = useMemo(() => [...products, ...bundleProducts], [products, bundleProducts]);
+  const bundleProducts = useMemo<Product[]>(
+    () =>
+      bundles.map((bundle) => ({
+        id: bundle.id,
+        name: bundle.title.ua,
+        nameRu: bundle.title.ru,
+        brand: lang === "ua" ? "Готовий набір" : "Готовый набор",
+        image:
+          products.find((p) => p.id === bundle.items[0]?.productId)?.image ||
+          "",
+        images: [],
+        category: "sets",
+        problem: [],
+        price: bundle.price,
+        sizes: [
+          { label: lang === "ua" ? "1 набір" : "1 набор", price: bundle.price },
+        ],
+        status: "available",
+        description: bundle.description,
+        chemistryGroups: [],
+      })),
+    [products, bundles, lang],
+  );
+  const orderProducts = useMemo(
+    () => [...products, ...bundleProducts],
+    [products, bundleProducts],
+  );
   const count = cart.reduce((sum, item) => sum + item.qty, 0);
-  const total = cart.reduce((sum, item) => { const product = orderProducts.find((p) => p.id === item.productId); const unit=product?.sizes.find(v=>v.label===item.size)?.price||product?.price||0; return sum + unit * item.qty; }, 0);
+  const total = cart.reduce((sum, item) => {
+    const product = orderProducts.find((p) => p.id === item.productId);
+    const unit =
+      product?.sizes.find((v) => v.label === item.size)?.price ||
+      product?.price ||
+      0;
+    return sum + unit * item.qty;
+  }, 0);
 
   const add = (product: Product, size: string) => {
     if (product.status === "waiting") return;
-    setCart((prev) => { const found = prev.find((i) => i.productId === product.id && i.size === size); return found ? prev.map((i) => i === found ? { ...i, qty: i.qty + 1 } : i) : [...prev, { productId: product.id, size, qty: 1 }]; });
-    setToast(t.added); setTimeout(() => setToast(""), 1400);
+    setCart((prev) => {
+      const found = prev.find(
+        (i) => i.productId === product.id && i.size === size,
+      );
+      return found
+        ? prev.map((i) => (i === found ? { ...i, qty: i.qty + 1 } : i))
+        : [...prev, { productId: product.id, size, qty: 1 }];
+    });
+    setToast(t.added);
+    setTimeout(() => setToast(""), 1400);
   };
-  const changeQty = (item: CartItem, delta: number) => setCart((prev) => prev.map((i) => i === item ? { ...i, qty: i.qty + delta } : i).filter((i) => i.qty > 0));
-  const changeProductQty = (productId: string, size: string, delta: number) => setCart((prev) => prev.map((item) => item.productId === productId && item.size === size ? { ...item, qty: item.qty + delta } : item).filter((item) => item.qty > 0));
-  const jumpCatalog = () => document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
-  const jumpResults = () => document.getElementById("catalog-results")?.scrollIntoView({ behavior: "auto", block: "start" });
-  const jumpVideoLibrary = () => document.getElementById("video-library")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const changeQty = (item: CartItem, delta: number) =>
+    setCart((prev) =>
+      prev
+        .map((i) => (i === item ? { ...i, qty: i.qty + delta } : i))
+        .filter((i) => i.qty > 0),
+    );
+  const changeProductQty = (productId: string, size: string, delta: number) =>
+    setCart((prev) =>
+      prev
+        .map((item) =>
+          item.productId === productId && item.size === size
+            ? { ...item, qty: item.qty + delta }
+            : item,
+        )
+        .filter((item) => item.qty > 0),
+    );
+  const jumpCatalog = () =>
+    document.getElementById("catalog")?.scrollIntoView({ behavior: "smooth" });
+  const jumpResults = () =>
+    document
+      .getElementById("catalog-results")
+      ?.scrollIntoView({ behavior: "auto", block: "start" });
+  const jumpVideoLibrary = () =>
+    document
+      .getElementById("video-library")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   const selectProblem = (id: string) => {
     setProblem(id);
     setCategory("all");
@@ -442,116 +1099,988 @@ export default function Home() {
       jumpResults();
     }, 320);
   };
-  const selectCategory = (id: string) => { setCategory(id); setSubCategory("all"); setProblem("all"); setSearch(""); setVisibleCount(12); setFullCatalogOpen(true); setMobileMenuOpen(false); window.setTimeout(() => { window.location.hash = "catalog-results"; jumpResults(); }, 320); };
+  const selectCategory = (id: string) => {
+    setCategory(id);
+    setSubCategory("all");
+    setProblem("all");
+    setSearch("");
+    setVisibleCount(12);
+    setFullCatalogOpen(true);
+    setMobileMenuOpen(false);
+    window.setTimeout(() => {
+      window.location.hash = "catalog-results";
+      jumpResults();
+    }, 320);
+  };
   const selectVideoType = (id: "chemistryVideos" | "equipmentVideos") => {
     setSubCategory(id);
     window.setTimeout(jumpVideoLibrary, 60);
   };
 
-  return <main className={count > 0 ? "has-floating-cart" : ""}>
-    <header className="site-header"><div className="container nav">
-      <button className="brand" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="CleanTapi — на початок"><img src="/cleantapi-logo.png" alt="CleanTapi"/></button>
-      <nav><button onClick={jumpCatalog}>{t.catalog}</button><button onClick={()=>selectCategory("sets")}>{t.sets}</button><button onClick={()=>selectCategory("videos")}>{t.videos}</button><button onClick={()=>selectCategory("training")}>{t.training}</button></nav>
-      <div className="nav-actions"><div className="language" aria-label="Language"><button className={lang === "ua" ? "active" : ""} onClick={() => setLang("ua")}>UA</button><span>/</span><button className={lang === "ru" ? "active" : ""} onClick={() => setLang("ru")}>RU</button></div><button className="mobile-menu-button" onClick={()=>setMobileMenuOpen(open=>!open)} aria-expanded={mobileMenuOpen} aria-label={mobileMenuOpen ? "Закрити меню" : "Відкрити меню"}><span></span><span></span><span></span></button><button className="cart-button" onClick={() => setCartOpen(true)} aria-label={t.cart}><span className="cart-symbol">⌑</span><span>{t.cart}</span><b>{count}</b></button></div>
-    </div></header>
-    {mobileMenuOpen && <nav className="mobile-nav" aria-label="Мобільне меню"><button onClick={()=>{setMobileMenuOpen(false);jumpCatalog()}}>{t.catalog}<span>→</span></button><button onClick={()=>selectCategory("sets")}>{t.sets}<span>→</span></button><button onClick={()=>selectCategory("videos")}>{t.videos}<span>→</span></button><button onClick={()=>selectCategory("training")}>{t.training}<span>→</span></button></nav>}
+  return (
+    <main className={count > 0 ? "has-floating-cart" : ""}>
+      <header className="site-header">
+        <div className="container nav">
+          <button
+            className="brand"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label="CleanTapi — на початок"
+          >
+            <img src="/cleantapi-logo.png" alt="CleanTapi" />
+          </button>
+          <nav>
+            <button onClick={jumpCatalog}>{t.catalog}</button>
+            <button onClick={() => selectCategory("sets")}>{t.sets}</button>
+            <button onClick={() => selectCategory("videos")}>{t.videos}</button>
+            <button onClick={() => selectCategory("training")}>
+              {t.training}
+            </button>
+          </nav>
+          <div className="nav-actions">
+            <div
+              className="currency-switch"
+              aria-label={lang === "ua" ? "Валюта цін" : "Валюта цен"}
+            >
+              <button
+                className={currency === "PLN" ? "active" : ""}
+                onClick={() => setCurrency("PLN")}
+              >
+                zł
+              </button>
+              <button
+                className={currency === "EUR" ? "active" : ""}
+                onClick={() => setCurrency("EUR")}
+              >
+                €
+              </button>
+            </div>
+            <div className="language" aria-label="Language">
+              <button
+                className={lang === "ua" ? "active" : ""}
+                onClick={() => setLang("ua")}
+              >
+                UA
+              </button>
+              <span>/</span>
+              <button
+                className={lang === "ru" ? "active" : ""}
+                onClick={() => setLang("ru")}
+              >
+                RU
+              </button>
+            </div>
+            <button
+              className="mobile-menu-button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? "Закрити меню" : "Відкрити меню"}
+            >
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+            <button
+              className="cart-button"
+              onClick={() => setCartOpen(true)}
+              aria-label={t.cart}
+            >
+              <span className="cart-symbol">⌑</span>
+              <span>{t.cart}</span>
+              <b>{count}</b>
+            </button>
+          </div>
+        </div>
+      </header>
+      {mobileMenuOpen && (
+        <nav className="mobile-nav" aria-label="Мобільне меню">
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              jumpCatalog();
+            }}
+          >
+            {t.catalog}
+            <span>→</span>
+          </button>
+          <button onClick={() => selectCategory("sets")}>
+            {t.sets}
+            <span>→</span>
+          </button>
+          <button onClick={() => selectCategory("videos")}>
+            {t.videos}
+            <span>→</span>
+          </button>
+          <button onClick={() => selectCategory("training")}>
+            {t.training}
+            <span>→</span>
+          </button>
+        </nav>
+      )}
 
-    <section className="hero"><div className="container hero-grid">
-      <div className="hero-copy"><p className="eyebrow">{t.eyebrow}</p><h1>{t.hero}</h1><p className="hero-text">{t.heroText}</p><div className="hero-buttons"><button className="primary" onClick={jumpCatalog}>{t.openCatalog} <span>→</span></button><button className="secondary" onClick={() => document.getElementById("problems")?.scrollIntoView({ behavior: "smooth" })}>{t.choose} <span>→</span></button></div><div className="trust"><span>◇ {t.checked}</span><span>◌ {t.simple}</span><span>▱ {t.europe}</span></div></div>
-      <div className="hero-photo"><div className="hero-products"><img src="/products/hero-global-power-blast-clean.png?v=20260808-4" alt="Global Power Blast"/><img src="/products/hero-chemspec-cotton-clean.png?v=20260808-4" alt="Chemspec Powdered Cotton Upholstery Cleaner"/><img src="/products/hero-global-acid-ocean-clean.png?v=20260808-4" alt="Global Acid Ocean"/></div><div className="expert-stamp">✓<span>{t.checked}</span></div></div>
-    </div></section>
+      <section className="hero">
+        <div className="container hero-grid">
+          <div className="hero-copy">
+            <p className="eyebrow">{t.eyebrow}</p>
+            <h1>{t.hero}</h1>
+            <p className="hero-text">{t.heroText}</p>
+            <div className="hero-buttons">
+              <button className="primary" onClick={jumpCatalog}>
+                {t.openCatalog} <span>→</span>
+              </button>
+              <button
+                className="secondary"
+                onClick={() =>
+                  document
+                    .getElementById("problems")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                {t.choose} <span>→</span>
+              </button>
+            </div>
+            <div className="trust">
+              <span>
+                <Icon name="trustChecked" />
+                {t.checked}
+              </span>
+              <span>
+                <Icon name="trustSimple" />
+                {t.simple}
+              </span>
+              <span>
+                <Icon name="trustDelivery" />
+                {t.europe}
+              </span>
+            </div>
+          </div>
+          <div className="hero-photo">
+            <div className="hero-products">
+              <img
+                src="/products/hero-global-power-blast-clean.png?v=20260808-4"
+                alt="Global Power Blast"
+              />
+              <img
+                src="/products/hero-chemspec-cotton-clean.png?v=20260808-4"
+                alt="Chemspec Powdered Cotton Upholstery Cleaner"
+              />
+              <img
+                src="/products/hero-global-acid-ocean-clean.png?v=20260808-4"
+                alt="Global Acid Ocean"
+              />
+            </div>
+            <div className="expert-stamp">
+              ✓<span>{t.checked}</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <section className="shop-guide"><div className="container"><div className="guide-heading"><p className="eyebrow">{lang === "ua" ? "ЯК КОРИСТУВАТИСЯ САЙТОМ" : "КАК ПОЛЬЗОВАТЬСЯ САЙТОМ"}</p><h2>{lang === "ua" ? "Знайдіть потрібний засіб і оформіть замовлення" : "Найдите нужное средство и оформите заказ"}</h2></div><div className="guide-steps">
-      <article><span>01</span><strong>{lang === "ua" ? "Оберіть напрям" : "Выберите направление"}</strong><p>{lang === "ua" ? "Шукайте за типом плями, категорією хімії або брендом." : "Ищите по типу пятна, категории химии или бренду."}</p></article>
-      <article><span>02</span><strong>{lang === "ua" ? "Відкрийте товар" : "Откройте товар"}</strong><p>{lang === "ua" ? "Прочитайте опис, перевірте наявність і виберіть потрібний об’єм." : "Прочитайте описание, проверьте наличие и выберите нужный объём."}</p></article>
-      <article><span>03</span><strong>{lang === "ua" ? "Оформіть замовлення" : "Оформите заказ"}</strong><p>{lang === "ua" ? "Додайте товари в кошик і залиште контактні дані для узгодження доставки." : "Добавьте товары в корзину и оставьте контакты для согласования доставки."}</p></article>
-    </div><div className="guide-contact"><p>{lang === "ua" ? "Не знайшли потрібний засіб або об’єм? На сайті представлена не вся продукція — напишіть нам у Telegram." : "Не нашли нужное средство или объём? На сайте представлена не вся продукция — напишите нам в Telegram."}</p><a href="https://t.me/Vitaliiivanovich" target="_blank" rel="noreferrer">{lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"} <span>→</span></a></div></div></section>
+      <section className="shop-guide">
+        <div className="container">
+          <div className="guide-heading">
+            <p className="eyebrow">
+              {lang === "ua"
+                ? "ЯК КОРИСТУВАТИСЯ САЙТОМ"
+                : "КАК ПОЛЬЗОВАТЬСЯ САЙТОМ"}
+            </p>
+            <h2>
+              {lang === "ua"
+                ? "Знайдіть потрібний засіб і оформіть замовлення"
+                : "Найдите нужное средство и оформите заказ"}
+            </h2>
+          </div>
+          <div className="guide-steps">
+            <article>
+              <span>01</span>
+              <strong>
+                {lang === "ua" ? "Оберіть напрям" : "Выберите направление"}
+              </strong>
+              <p>
+                {lang === "ua"
+                  ? "Шукайте за типом плями, категорією хімії або брендом."
+                  : "Ищите по типу пятна, категории химии или бренду."}
+              </p>
+            </article>
+            <article>
+              <span>02</span>
+              <strong>
+                {lang === "ua" ? "Відкрийте товар" : "Откройте товар"}
+              </strong>
+              <p>
+                {lang === "ua"
+                  ? "Прочитайте опис, перевірте наявність і виберіть потрібний об’єм."
+                  : "Прочитайте описание, проверьте наличие и выберите нужный объём."}
+              </p>
+            </article>
+            <article>
+              <span>03</span>
+              <strong>
+                {lang === "ua" ? "Оформіть замовлення" : "Оформите заказ"}
+              </strong>
+              <p>
+                {lang === "ua"
+                  ? "Додайте товари в кошик і залиште контактні дані для узгодження доставки."
+                  : "Добавьте товары в корзину и оставьте контакты для согласования доставки."}
+              </p>
+            </article>
+          </div>
+          <div className="guide-contact">
+            <p>
+              {lang === "ua"
+                ? "Не знайшли потрібний засіб або об’єм? На сайті представлена не вся продукція — напишіть нам у Telegram."
+                : "Не нашли нужное средство или объём? На сайте представлена не вся продукция — напишите нам в Telegram."}
+            </p>
+            <a
+              href="https://t.me/Vitaliiivanovich"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"}{" "}
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+      </section>
 
-    <section className="shop-entry container" id="catalog"><div className="catalog-top"><div><p className="eyebrow">{t.professionalCatalog}</p><h2>{t.catalogTitle}</h2><p>{lang === "ua" ? "Оберіть потрібний розділ — покажемо товари без зайвих кроків." : "Выберите нужный раздел — покажем товары без лишних шагов."}</p></div></div>
-      <div className="catalog-directory">{([
-        {id:"chemistry",label:"chemistry"},{id:"sets",label:"starterSets"},{id:"inventory",label:"inventory"},{id:"equipment",label:"equipmentCatalog"}
-      ] as const).map(({id,label},index)=><button key={id} className={category===id?"active":""} onClick={()=>selectCategory(id)}><span>0{index+1}</span><strong>{t[label]}</strong><small>{t[`${id}Hint` as keyof typeof t]}</small><b>→</b></button>)}</div>
-    </section>
+      <section className="shop-entry container" id="catalog">
+        <div className="catalog-top">
+          <div>
+            <p className="eyebrow">{t.professionalCatalog}</p>
+            <h2>{t.catalogTitle}</h2>
+            <p>
+              {lang === "ua"
+                ? "Оберіть потрібний розділ — покажемо товари без зайвих кроків."
+                : "Выберите нужный раздел — покажем товары без лишних шагов."}
+            </p>
+          </div>
+        </div>
+        <div className="catalog-directory">
+          {(
+            [
+              { id: "chemistry", label: "chemistry" },
+              { id: "sets", label: "starterSets" },
+              { id: "inventory", label: "inventory" },
+              { id: "equipment", label: "equipmentCatalog" },
+            ] as const
+          ).map(({ id, label }, index) => (
+            <button
+              key={id}
+              className={category === id ? "active" : ""}
+              onClick={() => selectCategory(id)}
+            >
+              <span>0{index + 1}</span>
+              <strong>{t[label]}</strong>
+              <small>{t[`${id}Hint` as keyof typeof t]}</small>
+              <b>→</b>
+            </button>
+          ))}
+        </div>
+      </section>
 
-    <section className="problems-wrap"><div className="problems container" id="problems"><div className="section-heading"><div><p className="eyebrow">{lang === "ua" ? "ПІДБІР ЗА ПРОБЛЕМОЮ" : "ПОДБОР ПО ПРОБЛЕМЕ"}</p><h2>{lang === "ua" ? "Оберіть тип забруднення" : "Выберите тип загрязнения"}</h2><p>{t.problemText}</p></div><span>{lang === "ua" ? "2 хвилини на вибір" : "2 минуты на выбор"}</span></div><div className="problem-grid">
-      {["urine","blood","grease","drinks","unsure"].map((id) => <button key={id} className={problem === id ? "selected" : ""} onClick={() => selectProblem(id)}><Icon name={id}/><span>{t[id as keyof typeof t]}</span><b>→</b></button>)}
-    </div></div></section>
+      <section className="problems-wrap">
+        <div className="problems container" id="problems">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">
+                {lang === "ua" ? "ПІДБІР ЗА ПРОБЛЕМОЮ" : "ПОДБОР ПО ПРОБЛЕМЕ"}
+              </p>
+              <h2>
+                {lang === "ua"
+                  ? "Оберіть тип забруднення"
+                  : "Выберите тип загрязнения"}
+              </h2>
+              <p>{t.problemText}</p>
+            </div>
+            <span>
+              {lang === "ua" ? "2 хвилини на вибір" : "2 минуты на выбор"}
+            </span>
+          </div>
+          <div className="problem-grid">
+            {["urine", "blood", "grease", "drinks", "unsure"].map((id) => (
+              <button
+                key={id}
+                className={problem === id ? "selected" : ""}
+                onClick={() => selectProblem(id)}
+              >
+                <Icon name={id} />
+                <span>{t[id as keyof typeof t]}</span>
+                <b>→</b>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
-    <section className="safety-notice"><div className="container"><span aria-hidden="true">!</span><div><strong>{lang === "ua" ? "Перед використанням обов’язково зробіть тест" : "Перед использованием обязательно сделайте тест"}</strong><p>{lang === "ua" ? "Кожен засіб спочатку протестуйте на непомітній ділянці. Лише після цього працюйте на основній поверхні та дотримуйтеся інструкції виробника." : "Каждое средство сначала протестируйте на незаметном участке. Только после этого работайте на основной поверхности и соблюдайте инструкцию производителя."}</p></div></div></section>
+      <section className="safety-notice">
+        <div className="container">
+          <span aria-hidden="true">!</span>
+          <div>
+            <strong>
+              {lang === "ua"
+                ? "Перед використанням обов’язково зробіть тест"
+                : "Перед использованием обязательно сделайте тест"}
+            </strong>
+            <p>
+              {lang === "ua"
+                ? "Кожен засіб спочатку протестуйте на непомітній ділянці. Лише після цього працюйте на основній поверхні та дотримуйтеся інструкції виробника."
+                : "Каждое средство сначала протестируйте на незаметном участке. Только после этого работайте на основной поверхности и соблюдайте инструкцию производителя."}
+            </p>
+          </div>
+        </div>
+      </section>
 
-    <section className="catalog-section"><div className="container">
-      {category === "chemistry" && <><div className="subcategory-panel"><span>{t.chemistry}</span><div>{["all","prespray","detergents","acidRinses","stainRemovers","odorNeutralizers","carChemistry"].map(id=><button key={id} className={subCategory===id?"active":""} onClick={()=>{setSubCategory(id);setVisibleCount(12)}}>{t[id as keyof typeof t]}</button>)}</div></div><div className="subcategory-panel brand-panel"><span>{lang === "ua" ? "Бренди" : "Бренды"}</span><div>{([{"id":"brandGlobal","label":"Global"},{"id":"brandChemspec","label":"Chemspec"},{"id":"brandWorldOfClean","label":"World of Clean"}]).map(item=><button key={item.id} className={subCategory===item.id?"active":""} onClick={()=>{setSubCategory(item.id);setVisibleCount(24)}}>{item.label}</button>)}</div></div></>}
-      {category === "equipment" && <div className="subcategory-panel"><span>{t.equipment}</span><div><button className={subCategory!=="windowEquipment"?"active":""} onClick={()=>setSubCategory("all")}>{t.furnitureEquipment}</button><button className={subCategory==="windowEquipment"?"active":""} onClick={()=>setSubCategory("windowEquipment")}>{t.windowEquipment}</button></div></div>}
-      {category === "videos" && <div className="subcategory-panel video-tabs"><span>{t.videos}</span><div><button className={subCategory!=="equipmentVideos"?"active":""} onClick={()=>selectVideoType("chemistryVideos")}>{t.chemistryVideos}<b>↓</b></button><button className={subCategory==="equipmentVideos"?"active":""} onClick={()=>selectVideoType("equipmentVideos")}>{t.equipmentVideos}<b>↓</b></button></div></div>}
-      {category !== "all" && <button className="show-all" onClick={()=>selectCategory("all")}>← {t.backToAll}</button>}
-      <div id="catalog-results" className="catalog-results-anchor">{loading && <p className="catalog-loading">{t.loading}</p>}{category === "training" ? <TrainingPanel t={t}/> : category === "videos" ? <div id="video-library" className="video-library-anchor"><VideoLibrary t={t} lang={lang} type={subCategory === "equipmentVideos" ? "equipment" : "chemistry"}/></div> : category === "sets" ? <BundleGrid bundles={bundles} products={products} lang={lang} t={t} onAdd={add}/> : <>
-        {BRAND_PRODUCT_IDS[subCategory] && <div className="brand-catalog-note"><div><strong>{lang === "ua" ? `Хімія ${subCategory === "brandWorldOfClean" ? "World of Clean" : subCategory === "brandChemspec" ? "Chemspec" : "Global"}` : `Химия ${subCategory === "brandWorldOfClean" ? "World of Clean" : subCategory === "brandChemspec" ? "Chemspec" : "Global"}`}</strong><p>{lang === "ua" ? "Якщо потрібного засобу або об’єму немає у списку, уточніть наявність у приватних повідомленнях." : "Если нужного средства или объёма нет в списке, уточните наличие в личных сообщениях."}</p></div><a href="https://t.me/Vitaliiivanovich" target="_blank" rel="noreferrer">Telegram →</a></div>}
-        <div className="catalog-tools"><label><span className="sr-only">{t.searchProducts}</span><input type="search" value={search} onChange={(event)=>{setSearch(event.target.value);setVisibleCount(12);setFullCatalogOpen(true)}} placeholder={t.searchProducts}/></label><p>{t.shownProducts} <strong>{Math.min(visibleProducts.length, filtered.length)}</strong> {t.ofProducts} <strong>{filtered.length}</strong> {t.productsWord}</p></div>
-        {filtered.length ? <div className="product-grid">{visibleProducts.map((p) => <ProductCard key={p.id} product={p} lang={lang} t={t} cart={cart} onAdd={add} onChangeQty={changeProductQty} onDetails={setSelectedProduct}/>)}</div> : <p className="catalog-empty">{t.noProducts}</p>}
-        {filtered.length > visibleProducts.length && <button className="catalog-more" type="button" onClick={()=>{if (!fullCatalogOpen) {setFullCatalogOpen(true);setVisibleCount(12)} else setVisibleCount(count=>count+12)}}>{fullCatalogOpen ? t.showMoreProducts : t.openFullCatalog}<span>↓</span></button>}
-      </>}</div>
-    </div></section>
+      <section className="catalog-section">
+        <div className="container">
+          {category === "chemistry" && (
+            <>
+              <div className="subcategory-panel">
+                <span>{t.chemistry}</span>
+                <div>
+                  {[
+                    "all",
+                    "prespray",
+                    "detergents",
+                    "acidRinses",
+                    "stainRemovers",
+                    "odorNeutralizers",
+                    "carChemistry",
+                  ].map((id) => (
+                    <button
+                      key={id}
+                      className={subCategory === id ? "active" : ""}
+                      onClick={() => {
+                        setSubCategory(id);
+                        setVisibleCount(12);
+                      }}
+                    >
+                      {t[id as keyof typeof t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="subcategory-panel brand-panel">
+                <span>{lang === "ua" ? "Бренди" : "Бренды"}</span>
+                <div>
+                  {[
+                    { id: "brandGlobal", label: "Global" },
+                    { id: "brandChemspec", label: "Chemspec" },
+                    { id: "brandWorldOfClean", label: "World of Clean" },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      className={subCategory === item.id ? "active" : ""}
+                      onClick={() => {
+                        setSubCategory(item.id);
+                        setVisibleCount(24);
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          {category === "equipment" && (
+            <div className="subcategory-panel">
+              <span>{t.equipment}</span>
+              <div>
+                <button
+                  className={subCategory !== "windowEquipment" ? "active" : ""}
+                  onClick={() => setSubCategory("all")}
+                >
+                  {t.furnitureEquipment}
+                </button>
+                <button
+                  className={subCategory === "windowEquipment" ? "active" : ""}
+                  onClick={() => setSubCategory("windowEquipment")}
+                >
+                  {t.windowEquipment}
+                </button>
+              </div>
+            </div>
+          )}
+          {category === "videos" && (
+            <div className="subcategory-panel video-tabs">
+              <span>{t.videos}</span>
+              <div>
+                <button
+                  className={subCategory !== "equipmentVideos" ? "active" : ""}
+                  onClick={() => selectVideoType("chemistryVideos")}
+                >
+                  {t.chemistryVideos}
+                  <b>↓</b>
+                </button>
+                <button
+                  className={subCategory === "equipmentVideos" ? "active" : ""}
+                  onClick={() => selectVideoType("equipmentVideos")}
+                >
+                  {t.equipmentVideos}
+                  <b>↓</b>
+                </button>
+              </div>
+            </div>
+          )}
+          {category !== "all" && (
+            <button className="show-all" onClick={() => selectCategory("all")}>
+              ← {t.backToAll}
+            </button>
+          )}
+          <div id="catalog-results" className="catalog-results-anchor">
+            {loading && <p className="catalog-loading">{t.loading}</p>}
+            {category === "training" ? (
+              <TrainingPanel t={t} />
+            ) : category === "videos" ? (
+              <div id="video-library" className="video-library-anchor">
+                <VideoLibrary
+                  t={t}
+                  lang={lang}
+                  type={
+                    subCategory === "equipmentVideos"
+                      ? "equipment"
+                      : "chemistry"
+                  }
+                />
+              </div>
+            ) : category === "sets" ? (
+              <BundleGrid
+                bundles={bundles}
+                products={products}
+                lang={lang}
+                t={t}
+                currency={currency}
+                eurRate={eurRate}
+                onAdd={add}
+              />
+            ) : (
+              <>
+                {BRAND_PRODUCT_IDS[subCategory] && (
+                  <div className="brand-catalog-note">
+                    <div>
+                      <strong>
+                        {lang === "ua"
+                          ? `Хімія ${subCategory === "brandWorldOfClean" ? "World of Clean" : subCategory === "brandChemspec" ? "Chemspec" : "Global"}`
+                          : `Химия ${subCategory === "brandWorldOfClean" ? "World of Clean" : subCategory === "brandChemspec" ? "Chemspec" : "Global"}`}
+                      </strong>
+                      <p>
+                        {lang === "ua"
+                          ? "Якщо потрібного засобу або об’єму немає у списку, уточніть наявність у приватних повідомленнях."
+                          : "Если нужного средства или объёма нет в списке, уточните наличие в личных сообщениях."}
+                      </p>
+                    </div>
+                    <a
+                      href="https://t.me/Vitaliiivanovich"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Telegram →
+                    </a>
+                  </div>
+                )}
+                <div className="catalog-tools">
+                  <label>
+                    <span className="sr-only">{t.searchProducts}</span>
+                    <input
+                      type="search"
+                      value={search}
+                      onChange={(event) => {
+                        setSearch(event.target.value);
+                        setVisibleCount(12);
+                        setFullCatalogOpen(true);
+                      }}
+                      placeholder={t.searchProducts}
+                    />
+                  </label>
+                  <p>
+                    {t.shownProducts}{" "}
+                    <strong>
+                      {Math.min(visibleProducts.length, filtered.length)}
+                    </strong>{" "}
+                    {t.ofProducts} <strong>{filtered.length}</strong>{" "}
+                    {t.productsWord}
+                  </p>
+                </div>
+                {currency === "EUR" && (
+                  <p className="currency-note">
+                    {lang === "ua"
+                      ? `Ціни в євро орієнтовні та розраховані за курсом NBP: 1 € = ${eurRate.toFixed(4)} zł.`
+                      : `Цены в евро ориентировочные и рассчитаны по курсу NBP: 1 € = ${eurRate.toFixed(4)} zł.`}
+                  </p>
+                )}
+                {filtered.length ? (
+                  <div className="product-grid">
+                    {visibleProducts.map((p) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        lang={lang}
+                        t={t}
+                        cart={cart}
+                        currency={currency}
+                        eurRate={eurRate}
+                        onAdd={add}
+                        onChangeQty={changeProductQty}
+                        onDetails={setSelectedProduct}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="catalog-empty">{t.noProducts}</p>
+                )}
+                {filtered.length > visibleProducts.length && (
+                  <button
+                    className="catalog-more"
+                    type="button"
+                    onClick={() => {
+                      if (!fullCatalogOpen) {
+                        setFullCatalogOpen(true);
+                        setVisibleCount(12);
+                      } else setVisibleCount((count) => count + 12);
+                    }}
+                  >
+                    {fullCatalogOpen ? t.showMoreProducts : t.openFullCatalog}
+                    <span>↓</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </section>
 
-    <section className="knowledge-band"><div className="container knowledge-grid"><div><p className="eyebrow">{lang === "ua" ? "ДОСВІД МАЙСТРА" : "ОПЫТ МАСТЕРА"}</p><h2>{lang === "ua" ? "Не впевнені, який засіб підійде?" : "Не уверены, какое средство подойдет?"}</h2><p>{lang === "ua" ? "Подивіться короткі пояснення або перейдіть до навчання — без складних термінів." : "Посмотрите короткие объяснения или перейдите к обучению — без сложных терминов."}</p></div><div><button onClick={()=>selectCategory("videos")}>{t.videos}<span>→</span></button><button onClick={()=>selectCategory("training")}>{t.training}<span>→</span></button></div></div></section>
+      <section className="knowledge-band">
+        <div className="container knowledge-grid">
+          <div>
+            <p className="eyebrow">
+              {lang === "ua" ? "ДОСВІД МАЙСТРА" : "ОПЫТ МАСТЕРА"}
+            </p>
+            <h2>
+              {lang === "ua"
+                ? "Не впевнені, який засіб підійде?"
+                : "Не уверены, какое средство подойдет?"}
+            </h2>
+            <p>
+              {lang === "ua"
+                ? "Подивіться короткі пояснення або перейдіть до навчання — без складних термінів."
+                : "Посмотрите короткие объяснения или перейдите к обучению — без сложных терминов."}
+            </p>
+          </div>
+          <div>
+            <button onClick={() => selectCategory("videos")}>
+              {t.videos}
+              <span>→</span>
+            </button>
+            <button onClick={() => selectCategory("training")}>
+              {t.training}
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+      </section>
 
-    <footer><div className="container footer-grid"><div><strong>{t.followMaster}</strong><p>{t.contactsText}</p></div><SocialLinks/><p className="copyright">© 2026</p></div></footer>
+      <footer>
+        <div className="container footer-grid">
+          <div>
+            <strong>{t.followMaster}</strong>
+            <p>{t.contactsText}</p>
+          </div>
+          <SocialLinks />
+          <p className="copyright">© 2026</p>
+        </div>
+      </footer>
 
-    {cartOpen && <div className="drawer-layer" role="presentation" onMouseDown={() => setCartOpen(false)}><aside className="cart-drawer" role="dialog" aria-modal="true" aria-label={t.cartTitle} onMouseDown={(e) => e.stopPropagation()}><div className="drawer-head"><div><h2>{checkoutOpen ? t.checkoutTitle : t.cartTitle}</h2><p>{checkoutOpen ? t.checkout : t.cartHint}</p></div><button className="close" onClick={() => setCartOpen(false)} aria-label={t.close}>×</button></div>
-      {checkoutOpen && cart.length > 0 ? <CheckoutForm lang={lang} t={t} items={cart.map((item): OrderItem | null => { const product=orderProducts.find(p=>p.id===item.productId); if(!product)return null; const unitPrice=product.sizes.find(v=>v.label===item.size)?.price||product.price; return {...item,name:productName(product,lang),unitPrice}; }).filter((item): item is OrderItem => item !== null)} total={total} onBack={()=>setCheckoutOpen(false)} onSuccess={()=>{setCart([]);setCheckoutOpen(false);setCartOpen(false);setOrderComplete(true);}}/> : <>
-      <div className="cart-items">{cart.length === 0 ? <div className="empty-cart"><span>⌑</span><p>{t.cartEmpty}</p><button onClick={() => setCartOpen(false)}>{t.continue}</button></div> : cart.map((item) => { const p = orderProducts.find((x) => x.id === item.productId); if(!p)return null; const unit=p.sizes.find(v=>v.label===item.size)?.price||p.price; return <div className="cart-item" key={`${item.productId}-${item.size}`}><img src={p.image} alt={productName(p,lang)}/><div><strong>{productName(p,lang)}</strong><small>{item.size}</small><span>{unit} zł</span></div><div className="qty"><button onClick={() => changeQty(item,-1)}>−</button><b>{item.qty}</b><button onClick={() => changeQty(item,1)}>+</button></div></div>; })}</div>
-      {cart.length > 0 && <div className="cart-summary"><div><span>{t.total}</span><strong>{total} zł</strong></div><button className="checkout-button" onClick={() => setCheckoutOpen(true)}>{t.checkout} <span>→</span></button><button className="continue secondary-cart" onClick={() => setCartOpen(false)}>{t.continue}</button><button className="clear" onClick={() => setCart([])}>{t.clear}</button></div>}
-      </>}
-    </aside></div>}
-    {selectedProduct && <ProductModal product={selectedProduct} lang={lang} t={t} onClose={()=>setSelectedProduct(null)} onAdd={add}/>} 
-    {orderComplete && <div className="order-success-layer" role="presentation" onMouseDown={()=>setOrderComplete(false)}><section className="order-success" role="dialog" aria-modal="true" aria-label={t.orderSuccess} onMouseDown={e=>e.stopPropagation()}><span className="success-mark">✓</span><p className="eyebrow">{t.orderSuccess}</p><h2>{t.orderSuccess}</h2><p>{t.orderSuccessText}</p><a href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(t.telegramMessage)}`} target="_blank" rel="noreferrer">{t.contactVitalii} <span>→</span></a><button type="button" onClick={()=>setOrderComplete(false)}>{t.closeSuccess}</button></section></div>}
-    {count > 0 && !cartOpen && <button className="floating-cart" type="button" onClick={()=>setCartOpen(true)} aria-label={t.cart}>
-      <span className="floating-cart-icon"><span className="cart-symbol">⌑</span><b>{count}</b></span>
-      <span className="floating-cart-copy"><strong>{count} {lang === "ua" ? (count === 1 ? "товар" : count < 5 ? "товари" : "товарів") : (count === 1 ? "товар" : count < 5 ? "товара" : "товаров")}</strong><small>{total} zł</small></span>
-      <span className="floating-cart-action">{lang === "ua" ? "Перейти до кошика" : "Перейти в корзину"} →</span>
-    </button>}
-    {toast && <div className="toast">✓ {toast}</div>}
-  </main>;
+      {cartOpen && (
+        <div
+          className="drawer-layer"
+          role="presentation"
+          onMouseDown={() => setCartOpen(false)}
+        >
+          <aside
+            className="cart-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.cartTitle}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="drawer-head">
+              <div>
+                <h2>{checkoutOpen ? t.checkoutTitle : t.cartTitle}</h2>
+                <p>{checkoutOpen ? t.checkout : t.cartHint}</p>
+              </div>
+              <button
+                className="close"
+                onClick={() => setCartOpen(false)}
+                aria-label={t.close}
+              >
+                ×
+              </button>
+            </div>
+            {checkoutOpen && cart.length > 0 ? (
+              <CheckoutForm
+                lang={lang}
+                t={t}
+                items={cart
+                  .map((item): OrderItem | null => {
+                    const product = orderProducts.find(
+                      (p) => p.id === item.productId,
+                    );
+                    if (!product) return null;
+                    const unitPrice =
+                      product.sizes.find((v) => v.label === item.size)?.price ||
+                      product.price;
+                    return {
+                      ...item,
+                      name: productName(product, lang),
+                      unitPrice,
+                    };
+                  })
+                  .filter((item): item is OrderItem => item !== null)}
+                total={total}
+                currency={currency}
+                eurRate={eurRate}
+                onBack={() => setCheckoutOpen(false)}
+                onSuccess={() => {
+                  setCart([]);
+                  setCheckoutOpen(false);
+                  setCartOpen(false);
+                  setOrderComplete(true);
+                }}
+              />
+            ) : (
+              <>
+                <div className="cart-items">
+                  {cart.length === 0 ? (
+                    <div className="empty-cart">
+                      <span>⌑</span>
+                      <p>{t.cartEmpty}</p>
+                      <button onClick={() => setCartOpen(false)}>
+                        {t.continue}
+                      </button>
+                    </div>
+                  ) : (
+                    cart.map((item) => {
+                      const p = orderProducts.find(
+                        (x) => x.id === item.productId,
+                      );
+                      if (!p) return null;
+                      const unit =
+                        p.sizes.find((v) => v.label === item.size)?.price ||
+                        p.price;
+                      return (
+                        <div
+                          className="cart-item"
+                          key={`${item.productId}-${item.size}`}
+                        >
+                          <img src={p.image} alt={productName(p, lang)} />
+                          <div>
+                            <strong>{productName(p, lang)}</strong>
+                            <small>{item.size}</small>
+                            <span>{money(unit, currency, eurRate)}</span>
+                          </div>
+                          <div className="qty">
+                            <button onClick={() => changeQty(item, -1)}>
+                              −
+                            </button>
+                            <b>{item.qty}</b>
+                            <button onClick={() => changeQty(item, 1)}>
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                {cart.length > 0 && (
+                  <div className="cart-summary">
+                    <div>
+                      <span>{t.total}</span>
+                      <strong>{money(total, currency, eurRate)}</strong>
+                      {currency === "EUR" && (
+                        <small>
+                          {lang === "ua"
+                            ? "Орієнтовно · оплата узгоджується в PLN"
+                            : "Ориентировочно · оплата согласовывается в PLN"}
+                        </small>
+                      )}
+                    </div>
+                    <button
+                      className="checkout-button"
+                      onClick={() => setCheckoutOpen(true)}
+                    >
+                      {t.checkout} <span>→</span>
+                    </button>
+                    <button
+                      className="continue secondary-cart"
+                      onClick={() => setCartOpen(false)}
+                    >
+                      {t.continue}
+                    </button>
+                    <button className="clear" onClick={() => setCart([])}>
+                      {t.clear}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </aside>
+        </div>
+      )}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          lang={lang}
+          t={t}
+          currency={currency}
+          eurRate={eurRate}
+          onClose={() => setSelectedProduct(null)}
+          onAdd={add}
+        />
+      )}
+      {orderComplete && (
+        <div
+          className="order-success-layer"
+          role="presentation"
+          onMouseDown={() => setOrderComplete(false)}
+        >
+          <section
+            className="order-success"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.orderSuccess}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <span className="success-mark">✓</span>
+            <p className="eyebrow">{t.orderSuccess}</p>
+            <h2>{t.orderSuccess}</h2>
+            <p>{t.orderSuccessText}</p>
+            <a
+              href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(t.telegramMessage)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t.contactVitalii} <span>→</span>
+            </a>
+            <button type="button" onClick={() => setOrderComplete(false)}>
+              {t.closeSuccess}
+            </button>
+          </section>
+        </div>
+      )}
+      {count > 0 && !cartOpen && (
+        <button
+          className="floating-cart"
+          type="button"
+          onClick={() => setCartOpen(true)}
+          aria-label={t.cart}
+        >
+          <span className="floating-cart-icon">
+            <span className="cart-symbol">⌑</span>
+            <b>{count}</b>
+          </span>
+          <span className="floating-cart-copy">
+            <strong>
+              {count}{" "}
+              {lang === "ua"
+                ? count === 1
+                  ? "товар"
+                  : count < 5
+                    ? "товари"
+                    : "товарів"
+                : count === 1
+                  ? "товар"
+                  : count < 5
+                    ? "товара"
+                    : "товаров"}
+            </strong>
+            <small>{money(total, currency, eurRate)}</small>
+          </span>
+          <span className="floating-cart-action">
+            {lang === "ua" ? "Перейти до кошика" : "Перейти в корзину"} →
+          </span>
+        </button>
+      )}
+      {toast && <div className="toast">✓ {toast}</div>}
+    </main>
+  );
 }
 
 function SocialLinks() {
   const links = [
-    { label: "Instagram", short: "IG", href: "https://www.instagram.com/vitalii_himchistka/" },
-    { label: "YouTube", short: "YT", href: "https://www.youtube.com/@vitalii_himchistka" },
-    { label: "TikTok", short: "TT", href: "https://www.tiktok.com/@vitalii_himchistka" },
+    {
+      label: "Instagram",
+      short: "IG",
+      href: "https://www.instagram.com/vitalii_himchistka/",
+    },
+    {
+      label: "YouTube",
+      short: "YT",
+      href: "https://www.youtube.com/@vitalii_himchistka",
+    },
+    {
+      label: "TikTok",
+      short: "TT",
+      href: "https://www.tiktok.com/@vitalii_himchistka",
+    },
     { label: "Telegram", short: "TG", href: "https://t.me/Vitaliiivanovich" },
   ];
-  return <div className="social-links">{links.map(link => <a key={link.label} href={link.href} target="_blank" rel="noreferrer" aria-label={link.label}><span>{link.short}</span>{link.label}</a>)}</div>;
+  return (
+    <div className="social-links">
+      {links.map((link) => (
+        <a
+          key={link.label}
+          href={link.href}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={link.label}
+        >
+          <span>{link.short}</span>
+          {link.label}
+        </a>
+      ))}
+    </div>
+  );
 }
 
 function TrainingPanel({ t }: { t: typeof copy.ua }) {
-  return <section className="training-panel"><div><p className="eyebrow">{t.training}</p><h3>{t.trainingTitle}</h3><p>{t.trainingText}</p><a href="https://norov-kurs.pl" target="_blank" rel="noreferrer">{t.openCourse} <span>→</span></a></div><div className="training-social"><strong>{t.followMaster}</strong><SocialLinks/></div></section>;
+  return (
+    <section className="training-panel">
+      <div>
+        <p className="eyebrow">{t.training}</p>
+        <h3>{t.trainingTitle}</h3>
+        <p>{t.trainingText}</p>
+        <a href="https://norov-kurs.pl" target="_blank" rel="noreferrer">
+          {t.openCourse} <span>→</span>
+        </a>
+      </div>
+      <div className="training-social">
+        <strong>{t.followMaster}</strong>
+        <SocialLinks />
+      </div>
+    </section>
+  );
 }
 
-function BundleGrid({ bundles, products, lang, t, onAdd }: { bundles: Bundle[]; products: Product[]; lang: Language; t: typeof copy.ua; onAdd: (product: Product, size: string) => void }) {
-  return <div className="bundle-grid">{bundles.map(bundle => <BundleCard key={bundle.id} bundle={bundle} products={products} lang={lang} t={t} onAdd={onAdd}/>)}</div>;
+function BundleGrid({
+  bundles,
+  products,
+  lang,
+  t,
+  currency,
+  eurRate,
+  onAdd,
+}: {
+  bundles: Bundle[];
+  products: Product[];
+  lang: Language;
+  t: typeof copy.ua;
+  currency: Currency;
+  eurRate: number;
+  onAdd: (product: Product, size: string) => void;
+}) {
+  return (
+    <div className="bundle-grid">
+      {bundles.map((bundle) => (
+        <BundleCard
+          key={bundle.id}
+          bundle={bundle}
+          products={products}
+          lang={lang}
+          t={t}
+          currency={currency}
+          eurRate={eurRate}
+          onAdd={onAdd}
+        />
+      ))}
+    </div>
+  );
 }
 
-function BundleCard({ bundle, products, lang, t, onAdd }: { bundle: Bundle; products: Product[]; lang: Language; t: typeof copy.ua; onAdd: (product: Product, size: string) => void }) {
+function BundleCard({
+  bundle,
+  products,
+  lang,
+  t,
+  currency,
+  eurRate,
+  onAdd,
+}: {
+  bundle: Bundle;
+  products: Product[];
+  lang: Language;
+  t: typeof copy.ua;
+  currency: Currency;
+  eurRate: number;
+  onAdd: (product: Product, size: string) => void;
+}) {
   const [slide, setSlide] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const item = bundle.items[slide];
-  const sourceProduct = products.find(product => product.id === item.productId);
+  const sourceProduct = products.find(
+    (product) => product.id === item.productId,
+  );
   const image = sourceProduct?.image || "";
   const size = lang === "ua" ? "1 набір" : "1 набор";
-  const bundleProduct: Product = { id:bundle.id, name:bundle.title.ua, nameRu:bundle.title.ru, brand:lang === "ua" ? "Готовий набір" : "Готовый набор", image:products.find(product=>product.id===bundle.items[0]?.productId)?.image || "", images:[], category:"sets", problem:[], price:bundle.price, sizes:[{label:size,price:bundle.price}], status:"available", description:bundle.description, chemistryGroups:[] };
-  const move = (delta:number) => setSlide(current => (current + delta + bundle.items.length) % bundle.items.length);
-  const bundleKind = /unger|вікон|окон/i.test(`${bundle.title.ua} ${bundle.title.ru}`) ? "window" : /стандарт/i.test(bundle.title.ua) ? "standard" : /експерт/i.test(bundle.title.ua) ? "expert" : /авто/i.test(bundle.title.ua) ? "auto" : "start";
-  const labels: Record<string,{ua:string;ru:string}> = {
-    start: {ua:"Для початку роботи · на 8–10 диванів",ru:"Для начала работы · на 8–10 диванов"},
-    standard: {ua:"Оптимальний вибір · на 35–45 диванів",ru:"Оптимальный выбор · на 35–45 диванов"},
-    expert: {ua:"Розширений професійний комплект",ru:"Расширенный профессиональный комплект"},
-    auto: {ua:"Салон, пластик, шкіра та скло",ru:"Салон, пластик, кожа и стекло"},
-    window: {ua:"Комплектація під ваші задачі",ru:"Комплектация под ваши задачи"},
+  const bundleProduct: Product = {
+    id: bundle.id,
+    name: bundle.title.ua,
+    nameRu: bundle.title.ru,
+    brand: lang === "ua" ? "Готовий набір" : "Готовый набор",
+    image:
+      products.find((product) => product.id === bundle.items[0]?.productId)
+        ?.image || "",
+    images: [],
+    category: "sets",
+    problem: [],
+    price: bundle.price,
+    sizes: [{ label: size, price: bundle.price }],
+    status: "available",
+    description: bundle.description,
+    chemistryGroups: [],
+  };
+  const move = (delta: number) =>
+    setSlide(
+      (current) =>
+        (current + delta + bundle.items.length) % bundle.items.length,
+    );
+  const bundleKind = /unger|вікон|окон/i.test(
+    `${bundle.title.ua} ${bundle.title.ru}`,
+  )
+    ? "window"
+    : /стандарт/i.test(bundle.title.ua)
+      ? "standard"
+      : /експерт/i.test(bundle.title.ua)
+        ? "expert"
+        : /авто/i.test(bundle.title.ua)
+          ? "auto"
+          : "start";
+  const labels: Record<string, { ua: string; ru: string }> = {
+    start: {
+      ua: "Для початку роботи · на 8–10 диванів",
+      ru: "Для начала работы · на 8–10 диванов",
+    },
+    standard: {
+      ua: "Оптимальний вибір · на 35–45 диванів",
+      ru: "Оптимальный выбор · на 35–45 диванов",
+    },
+    expert: {
+      ua: "Розширений професійний комплект",
+      ru: "Расширенный профессиональный комплект",
+    },
+    auto: {
+      ua: "Салон, пластик, шкіра та скло",
+      ru: "Салон, пластик, кожа и стекло",
+    },
+    window: {
+      ua: "Комплектація під ваші задачі",
+      ru: "Комплектация под ваши задачи",
+    },
   };
   const visibleItems = expanded ? bundle.items : [];
   useEffect(() => {
     if (!expanded) return;
-    const close = (event: KeyboardEvent) => event.key === "Escape" && setExpanded(false);
+    const close = (event: KeyboardEvent) =>
+      event.key === "Escape" && setExpanded(false);
     document.addEventListener("keydown", close);
     document.body.classList.add("modal-open");
     return () => {
@@ -559,64 +2088,771 @@ function BundleCard({ bundle, products, lang, t, onAdd }: { bundle: Bundle; prod
       document.body.classList.remove("modal-open");
     };
   }, [expanded]);
-  const telegramText = lang === "ua" ? `Добрий день! Хочу підібрати комплектацію набору «${bundle.title.ua}».` : `Добрый день! Хочу подобрать комплектацию набора «${bundle.title.ru}».`;
-  return <><article className="bundle-card" onClick={()=>setExpanded(true)}>
-    <div className="bundle-heading"><div className="bundle-kicker"><p>{lang === "ua" ? "ГОТОВИЙ КОМПЛЕКТ" : "ГОТОВЫЙ КОМПЛЕКТ"}</p>{bundleKind === "standard" && <span>{lang === "ua" ? "НАЙПОПУЛЯРНІШИЙ" : "САМЫЙ ПОПУЛЯРНЫЙ"}</span>}</div><h3>{bundle.title[lang]}</h3><small>{labels[bundleKind][lang]}</small></div>
-    <div className="bundle-slider">
-      {image && <img src={image} alt={`${item.name}, ${item.amount}`}/>}<button className="bundle-prev" type="button" onClick={(event)=>{event.stopPropagation();move(-1)}} aria-label="Назад">‹</button><button className="bundle-next" type="button" onClick={(event)=>{event.stopPropagation();move(1)}} aria-label="Далі">›</button>
-      <div className="bundle-slide-caption"><strong>{item.name}</strong><span>{item.amount} × {item.qty || 1}{item.pricePln ? ` · ${item.pricePln} zł${item.priceEur ? ` / ${item.priceEur} €` : ""}` : ""}</span></div><div className="bundle-counter">{slide + 1} / {bundle.items.length}</div>
-      <div className="bundle-dots">{bundle.items.map((_,index)=><button key={index} className={index===slide?"active":""} type="button" aria-label={`${index+1}`} onClick={(event)=>{event.stopPropagation();setSlide(index)}}/>)}</div>
-    </div>
-    <div className="bundle-copy"><strong className="bundle-price">{bundle.customPrice ? (lang === "ua" ? "Ціна залежить від комплектації" : "Цена зависит от комплектации") : `${bundle.price} zł`}</strong><p>{bundle.description[lang]}</p><button className="bundle-expand" type="button" aria-haspopup="dialog" aria-expanded={expanded} onClick={(event)=>{event.stopPropagation();setExpanded(true)}}><span>📦 {lang === "ua" ? `Опис і склад · ${bundle.items.length} позицій` : `Описание и состав · ${bundle.items.length} позиций`}</span><b>→</b></button>{bundle.customPrice ? <a className="bundle-add bundle-contact" href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(telegramText)}`} target="_blank" rel="noreferrer" onClick={event=>event.stopPropagation()}>{lang === "ua" ? "Написати для замовлення" : "Написать для заказа"}</a> : <button className="bundle-add" type="button" onClick={(event)=>{event.stopPropagation();onAdd(bundleProduct,size)}}>{lang === "ua" ? `Додати набір у кошик — ${bundle.price} zł` : `Добавить набор в корзину — ${bundle.price} zł`}</button>}</div>
-  </article>{expanded && <div className="bundle-modal-layer" role="presentation" onMouseDown={(event)=>event.target===event.currentTarget&&setExpanded(false)}><section className="bundle-modal" role="dialog" aria-modal="true" aria-labelledby={`${bundle.id}-title`}><div className="bundle-modal-head"><div><p>{lang === "ua" ? "ОПИС І СКЛАД ГОТОВОГО НАБОРУ" : "ОПИСАНИЕ И СОСТАВ ГОТОВОГО НАБОРА"}</p><h3 id={`${bundle.id}-title`}>{bundle.title[lang]}</h3></div><button type="button" onClick={()=>setExpanded(false)} aria-label={lang === "ua" ? "Закрити" : "Закрыть"}>×</button></div><p className="bundle-modal-description">{bundle.description[lang]}</p><ul>{visibleItems.map((entry,index)=><li key={`${entry.name}-${index}`}><span>{entry.name}</span><b>{entry.amount} × {entry.qty || 1}{entry.pricePln ? ` · ${entry.pricePln} zł${entry.priceEur ? ` / ${entry.priceEur} €` : ""}` : ""}</b></li>)}</ul><div className="bundle-modal-footer"><strong>{bundle.customPrice ? (lang === "ua" ? "За комплектацією" : "По комплектации") : `${bundle.price} zł`}</strong>{bundle.customPrice ? <a href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(telegramText)}`} target="_blank" rel="noreferrer">{lang === "ua" ? "Написати для замовлення" : "Написать для заказа"}</a> : <button type="button" onClick={()=>{onAdd(bundleProduct,size);setExpanded(false)}}>{lang === "ua" ? "Додати набір у кошик" : "Добавить набор в корзину"}</button>}</div></section></div>}</>;
+  const telegramText =
+    lang === "ua"
+      ? `Добрий день! Хочу підібрати комплектацію набору «${bundle.title.ua}».`
+      : `Добрый день! Хочу подобрать комплектацию набора «${bundle.title.ru}».`;
+  return (
+    <>
+      <article className="bundle-card" onClick={() => setExpanded(true)}>
+        <div className="bundle-heading">
+          <div className="bundle-kicker">
+            <p>{lang === "ua" ? "ГОТОВИЙ КОМПЛЕКТ" : "ГОТОВЫЙ КОМПЛЕКТ"}</p>
+            {bundleKind === "standard" && (
+              <span>
+                {lang === "ua" ? "НАЙПОПУЛЯРНІШИЙ" : "САМЫЙ ПОПУЛЯРНЫЙ"}
+              </span>
+            )}
+          </div>
+          <h3>{bundle.title[lang]}</h3>
+          <small>{labels[bundleKind][lang]}</small>
+        </div>
+        <div className="bundle-slider">
+          {image && <img src={image} alt={`${item.name}, ${item.amount}`} />}
+          <button
+            className="bundle-prev"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              move(-1);
+            }}
+            aria-label="Назад"
+          >
+            ‹
+          </button>
+          <button
+            className="bundle-next"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              move(1);
+            }}
+            aria-label="Далі"
+          >
+            ›
+          </button>
+          <div className="bundle-slide-caption">
+            <strong>{item.name}</strong>
+            <span>
+              {item.amount} × {item.qty || 1}
+              {item.pricePln
+                ? ` · ${money(item.pricePln, currency, eurRate)}`
+                : ""}
+            </span>
+          </div>
+          <div className="bundle-counter">
+            {slide + 1} / {bundle.items.length}
+          </div>
+          <div className="bundle-dots">
+            {bundle.items.map((_, index) => (
+              <button
+                key={index}
+                className={index === slide ? "active" : ""}
+                type="button"
+                aria-label={`${index + 1}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSlide(index);
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="bundle-copy">
+          <strong className="bundle-price">
+            {bundle.customPrice
+              ? lang === "ua"
+                ? "Ціна залежить від комплектації"
+                : "Цена зависит от комплектации"
+              : money(bundle.price, currency, eurRate)}
+          </strong>
+          <p>{bundle.description[lang]}</p>
+          <button
+            className="bundle-expand"
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={expanded}
+            onClick={(event) => {
+              event.stopPropagation();
+              setExpanded(true);
+            }}
+          >
+            <span>
+              📦{" "}
+              {lang === "ua"
+                ? `Опис і склад · ${bundle.items.length} позицій`
+                : `Описание и состав · ${bundle.items.length} позиций`}
+            </span>
+            <b>→</b>
+          </button>
+          {bundle.customPrice ? (
+            <a
+              className="bundle-add bundle-contact"
+              href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(telegramText)}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {lang === "ua"
+                ? "Написати для замовлення"
+                : "Написать для заказа"}
+            </a>
+          ) : (
+            <button
+              className="bundle-add"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onAdd(bundleProduct, size);
+              }}
+            >
+              {lang === "ua"
+                ? `Додати набір у кошик — ${money(bundle.price, currency, eurRate)}`
+                : `Добавить набор в корзину — ${money(bundle.price, currency, eurRate)}`}
+            </button>
+          )}
+        </div>
+      </article>
+      {expanded && (
+        <div
+          className="bundle-modal-layer"
+          role="presentation"
+          onMouseDown={(event) =>
+            event.target === event.currentTarget && setExpanded(false)
+          }
+        >
+          <section
+            className="bundle-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${bundle.id}-title`}
+          >
+            <div className="bundle-modal-head">
+              <div>
+                <p>
+                  {lang === "ua"
+                    ? "ОПИС І СКЛАД ГОТОВОГО НАБОРУ"
+                    : "ОПИСАНИЕ И СОСТАВ ГОТОВОГО НАБОРА"}
+                </p>
+                <h3 id={`${bundle.id}-title`}>{bundle.title[lang]}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                aria-label={lang === "ua" ? "Закрити" : "Закрыть"}
+              >
+                ×
+              </button>
+            </div>
+            <p className="bundle-modal-description">
+              {bundle.description[lang]}
+            </p>
+            <ul>
+              {visibleItems.map((entry, index) => (
+                <li key={`${entry.name}-${index}`}>
+                  <span>{entry.name}</span>
+                  <b>
+                    {entry.amount} × {entry.qty || 1}
+                    {entry.pricePln
+                      ? ` · ${money(entry.pricePln, currency, eurRate)}`
+                      : ""}
+                  </b>
+                </li>
+              ))}
+            </ul>
+            <div className="bundle-modal-footer">
+              <strong>
+                {bundle.customPrice
+                  ? lang === "ua"
+                    ? "За комплектацією"
+                    : "По комплектации"
+                  : money(bundle.price, currency, eurRate)}
+              </strong>
+              {bundle.customPrice ? (
+                <a
+                  href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(telegramText)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {lang === "ua"
+                    ? "Написати для замовлення"
+                    : "Написать для заказа"}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAdd(bundleProduct, size);
+                    setExpanded(false);
+                  }}
+                >
+                  {lang === "ua"
+                    ? "Додати набір у кошик"
+                    : "Добавить набор в корзину"}
+                </button>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
 }
 
-function VideoLibrary({ t, lang, type }: { t: typeof copy.ua; lang: Language; type: "chemistry" | "equipment" }) {
+function VideoLibrary({
+  t,
+  lang,
+  type,
+}: {
+  t: typeof copy.ua;
+  lang: Language;
+  type: "chemistry" | "equipment";
+}) {
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const title = type === "chemistry" ? t.chemistryVideos : t.equipmentVideos;
-  const description = type === "chemistry" ? t.videoChemistryText : t.videoEquipmentText;
-  const visibleVideos = videoItems.filter(video => video.type === type);
+  const description =
+    type === "chemistry" ? t.videoChemistryText : t.videoEquipmentText;
+  const visibleVideos = videoItems.filter((video) => video.type === type);
   useEffect(() => {
     if (!activeVideo) return;
-    const close = (event: KeyboardEvent) => event.key === "Escape" && setActiveVideo(null);
+    const close = (event: KeyboardEvent) =>
+      event.key === "Escape" && setActiveVideo(null);
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
   }, [activeVideo]);
-  return <section className="video-library">
-    <div className="video-intro"><div><p className="eyebrow">{t.videoLibrary}</p><h3>{t.videoTitle}</h3><p>{t.videoText}</p></div><a href="https://www.youtube.com/@vitalii_himchistka" target="_blank" rel="noreferrer">{t.openYoutube} <span>↗</span></a></div>
-    <div className="video-topic"><span>01</span><div><strong>{title}</strong><p>{description}</p></div></div>
-    <div className="video-grid">
-      {visibleVideos.map(video => <article className="video-card" key={video.id}><button className="video-card-media" type="button" onClick={()=>setActiveVideo(video)} aria-label={`${t.watchVideo}: ${video.title[lang]}`}><img src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`} alt=""/><span>▶</span></button><div><p>{type === "equipment" ? t.equipmentVideos : t.chemistryVideos}</p><h4>{video.title[lang]}</h4><button type="button" onClick={()=>setActiveVideo(video)}>{t.watchVideo} <span>→</span></button></div></article>)}
-    </div>
-    {activeVideo && <div className="video-modal-layer" role="presentation" onMouseDown={()=>setActiveVideo(null)}><section className="video-modal" role="dialog" aria-modal="true" aria-label={activeVideo.title[lang]} onMouseDown={event=>event.stopPropagation()}><div className="video-modal-head"><h3>{activeVideo.title[lang]}</h3><button type="button" onClick={()=>setActiveVideo(null)} aria-label={t.closeVideo}>×</button></div><div className="video-frame"><iframe src={`https://www.youtube-nocookie.com/embed/${activeVideo.id}?autoplay=1&rel=0`} title={activeVideo.title[lang]} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen/></div></section></div>}
-  </section>;
+  return (
+    <section className="video-library">
+      <div className="video-intro">
+        <div>
+          <p className="eyebrow">{t.videoLibrary}</p>
+          <h3>{t.videoTitle}</h3>
+          <p>{t.videoText}</p>
+        </div>
+        <a
+          href="https://www.youtube.com/@vitalii_himchistka"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {t.openYoutube} <span>↗</span>
+        </a>
+      </div>
+      <div className="video-topic">
+        <span>01</span>
+        <div>
+          <strong>{title}</strong>
+          <p>{description}</p>
+        </div>
+      </div>
+      <div className="video-grid">
+        {visibleVideos.map((video) => (
+          <article className="video-card" key={video.id}>
+            <button
+              className="video-card-media"
+              type="button"
+              onClick={() => setActiveVideo(video)}
+              aria-label={`${t.watchVideo}: ${video.title[lang]}`}
+            >
+              <img
+                src={`https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`}
+                alt=""
+              />
+              <span>▶</span>
+            </button>
+            <div>
+              <p>
+                {type === "equipment" ? t.equipmentVideos : t.chemistryVideos}
+              </p>
+              <h4>{video.title[lang]}</h4>
+              <button type="button" onClick={() => setActiveVideo(video)}>
+                {t.watchVideo} <span>→</span>
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      {activeVideo && (
+        <div
+          className="video-modal-layer"
+          role="presentation"
+          onMouseDown={() => setActiveVideo(null)}
+        >
+          <section
+            className="video-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={activeVideo.title[lang]}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="video-modal-head">
+              <h3>{activeVideo.title[lang]}</h3>
+              <button
+                type="button"
+                onClick={() => setActiveVideo(null)}
+                aria-label={t.closeVideo}
+              >
+                ×
+              </button>
+            </div>
+            <div className="video-frame">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${activeVideo.id}?autoplay=1&rel=0`}
+                title={activeVideo.title[lang]}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          </section>
+        </div>
+      )}
+    </section>
+  );
 }
 
-function ProductCard({ product, lang, t, cart, onAdd, onChangeQty, onDetails }: { product: Product; lang: Language; t: typeof copy.ua; cart: CartItem[]; onAdd: (p: Product, size: string) => void; onChangeQty:(productId:string,size:string,delta:number)=>void; onDetails:(p:Product)=>void }) {
+function ProductCard({
+  product,
+  lang,
+  t,
+  cart,
+  currency,
+  eurRate,
+  onAdd,
+  onChangeQty,
+  onDetails,
+}: {
+  product: Product;
+  lang: Language;
+  t: typeof copy.ua;
+  cart: CartItem[];
+  currency: Currency;
+  eurRate: number;
+  onAdd: (p: Product, size: string) => void;
+  onChangeQty: (productId: string, size: string, delta: number) => void;
+  onDetails: (p: Product) => void;
+}) {
   const [size, setSize] = useState(product.sizes[0]?.label || "1 шт.");
   const unavailable = product.status === "waiting";
-  const hasBakedBackground = /\.jpe?g$/i.test(product.image) || /-official\.webp$/i.test(product.image);
-  const activePrice=product.sizes.find(v=>v.label===size)?.price||product.price;
-  const cartQty=cart.find(item=>item.productId===product.id&&item.size===size)?.qty||0;
-  const name = productName(product,lang);
-  return <article className={`product-card ${unavailable ? "unavailable" : ""}`} onClick={()=>onDetails(product)}><div className="product-image"><img className={hasBakedBackground ? "baked-background" : "product-cutout"} src={product.image} alt={`${product.brand} ${name}`}/><span className={`status ${product.status}`}>{t[product.status]}</span>{product.images.length > 1 && <span className="gallery-count">{product.images.length} фото</span>}</div><div className="product-body"><p className="brand-label">{product.brand}</p><h3>{name}</h3><p className="description">{product.description[lang]}</p><div className="size-row" onClick={e=>e.stopPropagation()}><span>{t.size}</span><div>{product.sizes.map((s) => <button key={s.label} className={size === s.label ? "active" : ""} onClick={() => setSize(s.label)}>{s.label}</button>)}</div></div><div className="price-line"><strong>{product.sizes.length>1?t.from:""} {activePrice} zł</strong></div><div className="product-actions"><button className="details" onClick={(e)=>{e.stopPropagation();onDetails(product)}}>{t.details}</button>{cartQty>0?<div className="card-cart-controls" onClick={e=>e.stopPropagation()}><button type="button" onClick={()=>onChangeQty(product.id,size,-1)} aria-label={lang==="ua"?"Зменшити кількість":"Уменьшить количество"}>−</button><span><small>✓ {lang==="ua"?"У кошику":"В корзине"}</small><b>{cartQty}</b></span><button type="button" onClick={()=>onChangeQty(product.id,size,1)} aria-label={lang==="ua"?"Збільшити кількість":"Увеличить количество"}>+</button></div>:<button className="add-button" disabled={unavailable} onClick={(e) => {e.stopPropagation();onAdd(product,size)}}>{unavailable ? t.waiting : `+ ${t.add}`}</button>}</div></div></article>;
+  const hasBakedBackground =
+    /\.jpe?g$/i.test(product.image) || /-official\.webp$/i.test(product.image);
+  const activePrice =
+    product.sizes.find((v) => v.label === size)?.price || product.price;
+  const cartQty =
+    cart.find((item) => item.productId === product.id && item.size === size)
+      ?.qty || 0;
+  const name = productName(product, lang);
+  return (
+    <article
+      className={`product-card ${unavailable ? "unavailable" : ""}`}
+      onClick={() => onDetails(product)}
+    >
+      <div className="product-image">
+        <img
+          className={hasBakedBackground ? "baked-background" : "product-cutout"}
+          src={product.image}
+          alt={`${product.brand} ${name}`}
+        />
+        <span className={`status ${product.status}`}>{t[product.status]}</span>
+        {product.images.length > 1 && (
+          <span className="gallery-count">{product.images.length} фото</span>
+        )}
+      </div>
+      <div className="product-body">
+        <p className="brand-label">{product.brand}</p>
+        <h3>{name}</h3>
+        <p className="description">{product.description[lang]}</p>
+        <div className="size-row" onClick={(e) => e.stopPropagation()}>
+          <span>{t.size}</span>
+          <div>
+            {product.sizes.map((s) => (
+              <button
+                key={s.label}
+                className={size === s.label ? "active" : ""}
+                onClick={() => setSize(s.label)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="price-line">
+          <strong>
+            {product.sizes.length > 1 ? t.from : ""}{" "}
+            {money(activePrice, currency, eurRate)}
+          </strong>
+        </div>
+        <div className="product-actions">
+          <button
+            className="details"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDetails(product);
+            }}
+          >
+            {t.details}
+          </button>
+          {cartQty > 0 ? (
+            <div
+              className="card-cart-controls"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => onChangeQty(product.id, size, -1)}
+                aria-label={
+                  lang === "ua" ? "Зменшити кількість" : "Уменьшить количество"
+                }
+              >
+                −
+              </button>
+              <span>
+                <small>✓ {lang === "ua" ? "У кошику" : "В корзине"}</small>
+                <b>{cartQty}</b>
+              </span>
+              <button
+                type="button"
+                onClick={() => onChangeQty(product.id, size, 1)}
+                aria-label={
+                  lang === "ua" ? "Збільшити кількість" : "Увеличить количество"
+                }
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              className="add-button"
+              disabled={unavailable}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd(product, size);
+              }}
+            >
+              {unavailable ? t.waiting : `+ ${t.add}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
 }
 
-function ProductModal({product,lang,t,onClose,onAdd}:{product:Product;lang:Language;t:typeof copy.ua;onClose:()=>void;onAdd:(p:Product,size:string)=>void}){
- const [size,setSize]=useState(product.sizes[0]?.label||"1 шт."); const [photo,setPhoto]=useState(0); const price=product.sizes.find(v=>v.label===size)?.price||product.price; const unavailable=product.status==="waiting"; const gallery=product.images.length?product.images:[product.image]; const name=productName(product,lang);
- useEffect(()=>{const key=(e:KeyboardEvent)=>e.key==="Escape"&&onClose();document.addEventListener("keydown",key);document.body.classList.add("modal-open");return()=>{document.removeEventListener("keydown",key);document.body.classList.remove("modal-open")}},[onClose]);
- return <div className="product-modal-layer" onMouseDown={onClose}><section className="product-modal" role="dialog" aria-modal="true" aria-label={name} onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={onClose}>×</button><div className="modal-media"><img src={gallery[photo]} alt={`${product.brand} ${name}, фото ${photo+1}`}/><span className={`status ${product.status}`}>{t[product.status]}</span>{gallery.length>1&&<div className="modal-gallery">{gallery.map((src,index)=><button key={src} className={index===photo?"active":""} type="button" onClick={()=>setPhoto(index)} aria-label={`Фото ${index+1}`}><img src={src} alt=""/></button>)}</div>}</div><div className="modal-copy"><p className="brand-label">{product.brand}</p><h2>{name}</h2><p className="modal-kicker">{t.fullDescription}</p><p className="modal-description">{product.description[lang]}</p><div className="modal-sizes"><span>{t.size}</span><div>{product.sizes.map(v=><button key={v.label} className={size===v.label?"active":""} onClick={()=>setSize(v.label)}>{v.label} · {v.price} zł</button>)}</div></div><strong className="modal-price">{price} zł</strong><button className="modal-add" disabled={unavailable} onClick={()=>onAdd(product,size)}>{unavailable?t.waiting:`+ ${t.add}`}</button></div></section></div>
+function ProductModal({
+  product,
+  lang,
+  t,
+  currency,
+  eurRate,
+  onClose,
+  onAdd,
+}: {
+  product: Product;
+  lang: Language;
+  t: typeof copy.ua;
+  currency: Currency;
+  eurRate: number;
+  onClose: () => void;
+  onAdd: (p: Product, size: string) => void;
+}) {
+  const [size, setSize] = useState(product.sizes[0]?.label || "1 шт.");
+  const [photo, setPhoto] = useState(0);
+  const price =
+    product.sizes.find((v) => v.label === size)?.price || product.price;
+  const unavailable = product.status === "waiting";
+  const gallery = product.images.length ? product.images : [product.image];
+  const name = productName(product, lang);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", key);
+    document.body.classList.add("modal-open");
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.body.classList.remove("modal-open");
+    };
+  }, [onClose]);
+  return (
+    <div className="product-modal-layer" onMouseDown={onClose}>
+      <section
+        className="product-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <button className="modal-close" onClick={onClose}>
+          ×
+        </button>
+        <div className="modal-media">
+          <img
+            src={gallery[photo]}
+            alt={`${product.brand} ${name}, фото ${photo + 1}`}
+          />
+          <span className={`status ${product.status}`}>
+            {t[product.status]}
+          </span>
+          {gallery.length > 1 && (
+            <div className="modal-gallery">
+              {gallery.map((src, index) => (
+                <button
+                  key={src}
+                  className={index === photo ? "active" : ""}
+                  type="button"
+                  onClick={() => setPhoto(index)}
+                  aria-label={`Фото ${index + 1}`}
+                >
+                  <img src={src} alt="" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="modal-copy">
+          <p className="brand-label">{product.brand}</p>
+          <h2>{name}</h2>
+          <p className="modal-kicker">{t.fullDescription}</p>
+          <p className="modal-description">{product.description[lang]}</p>
+          <div className="modal-sizes">
+            <span>{t.size}</span>
+            <div>
+              {product.sizes.map((v) => (
+                <button
+                  key={v.label}
+                  className={size === v.label ? "active" : ""}
+                  onClick={() => setSize(v.label)}
+                >
+                  {v.label} · {money(v.price, currency, eurRate)}
+                </button>
+              ))}
+            </div>
+          </div>
+          <strong className="modal-price">
+            {money(price, currency, eurRate)}
+          </strong>
+          <button
+            className="modal-add"
+            disabled={unavailable}
+            onClick={() => onAdd(product, size)}
+          >
+            {unavailable ? t.waiting : `+ ${t.add}`}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
-function CheckoutForm({lang,t,items,total,onBack,onSuccess}:{lang:Language;t:typeof copy.ua;items:OrderItem[];total:number;onBack:()=>void;onSuccess:()=>void}){
+function CheckoutForm({
+  lang,
+  t,
+  items,
+  total,
+  currency,
+  eurRate,
+  onBack,
+  onSuccess,
+}: {
+  lang: Language;
+  t: typeof copy.ua;
+  items: OrderItem[];
+  total: number;
+  currency: Currency;
+  eurRate: number;
+  onBack: () => void;
+  onSuccess: () => void;
+}) {
   const phoneCodes = [
-    {code:"+48",label:"PL +48"},{code:"+33",label:"FR +33"},{code:"+380",label:"UA +380"},{code:"+49",label:"DE +49"},{code:"+420",label:"CZ +420"},{code:"+421",label:"SK +421"},{code:"+44",label:"UK +44"},{code:"+353",label:"IE +353"},{code:"+39",label:"IT +39"},{code:"+34",label:"ES +34"},{code:"+31",label:"NL +31"},{code:"+32",label:"BE +32"},{code:"+370",label:"LT +370"},{code:"+371",label:"LV +371"},{code:"+372",label:"EE +372"},{code:"+1",label:"US/CA +1"},
+    { code: "+48", label: "PL +48" },
+    { code: "+33", label: "FR +33" },
+    { code: "+380", label: "UA +380" },
+    { code: "+49", label: "DE +49" },
+    { code: "+420", label: "CZ +420" },
+    { code: "+421", label: "SK +421" },
+    { code: "+44", label: "UK +44" },
+    { code: "+353", label: "IE +353" },
+    { code: "+39", label: "IT +39" },
+    { code: "+34", label: "ES +34" },
+    { code: "+31", label: "NL +31" },
+    { code: "+32", label: "BE +32" },
+    { code: "+370", label: "LT +370" },
+    { code: "+371", label: "LV +371" },
+    { code: "+372", label: "EE +372" },
+    { code: "+1", label: "US/CA +1" },
   ];
-  const [phoneCode,setPhoneCode]=useState("+48");
-  const [form,setForm]=useState({name:"",phone:"",telegram:"",delivery:"post",country:"Polska",city:"",destination:"",website:""});
-  const [submitting,setSubmitting]=useState(false); const [error,setError]=useState("");
-  const update=(key:keyof typeof form,value:string)=>setForm(current=>({...current,[key]:value}));
-  const formatPhone=(value:string)=>value.replace(/\D/g,"").slice(0,12).replace(/(\d{3})(?=\d)/g,"$1 ");
-  const submit=async(e:React.FormEvent)=>{e.preventDefault();setError("");if(!form.name.trim()||form.phone.replace(/\D/g,"").length<6||!form.country.trim()||!form.city.trim()||!form.destination.trim()){setError(t.required);return;}setSubmitting(true);try{const response=await fetch("/api/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,phone:`${phoneCode} ${form.phone}`.trim(),language:lang,items})});if(!response.ok)throw new Error("order");onSuccess();}catch{setError(t.orderError);}finally{setSubmitting(false);}};
-  return <form className="checkout-form" onSubmit={submit}><div className="checkout-total"><span>{t.total}</span><strong>{total} zł</strong></div><label>{t.name}<input value={form.name} onChange={e=>update("name",e.target.value)} autoComplete="name" maxLength={100} required/></label><label>{t.phone}<div className="phone-input"><select aria-label={t.country} value={phoneCode} onChange={e=>setPhoneCode(e.target.value)}>{phoneCodes.map(item=><option key={item.code} value={item.code}>{item.label}</option>)}</select><input type="tel" inputMode="numeric" value={form.phone} onChange={e=>update("phone",formatPhone(e.target.value))} autoComplete="tel-national" placeholder="501 234 567" maxLength={15} required/></div></label><label>{t.telegram}<input value={form.telegram} onChange={e=>update("telegram",e.target.value)} placeholder="@username" maxLength={80}/></label><label>{t.delivery}<select value={form.delivery} onChange={e=>update("delivery",e.target.value)}><option value="post">{t.post}</option><option value="courier">{t.courier}</option><option value="pickup">{t.pickup}</option><option value="agree">{t.agreeDelivery}</option></select></label><div className="checkout-grid"><label>{t.country}<input value={form.country} onChange={e=>update("country",e.target.value)} autoComplete="country-name" maxLength={80} required/></label><label>{t.city}<input value={form.city} onChange={e=>update("city",e.target.value)} autoComplete="address-level2" maxLength={100} required/></label></div><label>{t.destination}<input value={form.destination} onChange={e=>update("destination",e.target.value)} autoComplete="street-address" maxLength={160} required/></label><label className="website-field" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" value={form.website} onChange={e=>update("website",e.target.value)}/></label>{error&&<p className="form-error" role="alert">{error}</p>}<button className="submit-order" type="submit" disabled={submitting}>{submitting?t.sending:`${t.sendOrder} →`}</button><button className="back-cart" type="button" onClick={onBack}>← {t.backToCart}</button></form>;
+  const [phoneCode, setPhoneCode] = useState("+48");
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    telegram: "",
+    delivery: "post",
+    country: "Polska",
+    city: "",
+    destination: "",
+    website: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const update = (key: keyof typeof form, value: string) =>
+    setForm((current) => ({ ...current, [key]: value }));
+  const formatPhone = (value: string) =>
+    value
+      .replace(/\D/g, "")
+      .slice(0, 12)
+      .replace(/(\d{3})(?=\d)/g, "$1 ");
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (
+      !form.name.trim() ||
+      form.phone.replace(/\D/g, "").length < 6 ||
+      !form.country.trim() ||
+      !form.city.trim() ||
+      !form.destination.trim()
+    ) {
+      setError(t.required);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          phone: `${phoneCode} ${form.phone}`.trim(),
+          language: lang,
+          displayCurrency: currency,
+          eurRate,
+          items,
+        }),
+      });
+      if (!response.ok) throw new Error("order");
+      onSuccess();
+    } catch {
+      setError(t.orderError);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <form className="checkout-form" onSubmit={submit}>
+      <div className="checkout-total">
+        <span>{t.total}</span>
+        <strong>{money(total, currency, eurRate)}</strong>
+        {currency === "EUR" && (
+          <small>
+            {lang === "ua"
+              ? "Орієнтовна сума за курсом NBP"
+              : "Ориентировочная сумма по курсу NBP"}
+          </small>
+        )}
+      </div>
+      <label>
+        {t.name}
+        <input
+          value={form.name}
+          onChange={(e) => update("name", e.target.value)}
+          autoComplete="name"
+          maxLength={100}
+          required
+        />
+      </label>
+      <label>
+        {t.phone}
+        <div className="phone-input">
+          <select
+            aria-label={t.country}
+            value={phoneCode}
+            onChange={(e) => setPhoneCode(e.target.value)}
+          >
+            {phoneCodes.map((item) => (
+              <option key={item.code} value={item.code}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+          <input
+            type="tel"
+            inputMode="numeric"
+            value={form.phone}
+            onChange={(e) => update("phone", formatPhone(e.target.value))}
+            autoComplete="tel-national"
+            placeholder="501 234 567"
+            maxLength={15}
+            required
+          />
+        </div>
+      </label>
+      <label>
+        {t.telegram}
+        <input
+          value={form.telegram}
+          onChange={(e) => update("telegram", e.target.value)}
+          placeholder="@username"
+          maxLength={80}
+        />
+      </label>
+      <label>
+        {t.delivery}
+        <select
+          value={form.delivery}
+          onChange={(e) => update("delivery", e.target.value)}
+        >
+          <option value="post">{t.post}</option>
+          <option value="courier">{t.courier}</option>
+          <option value="pickup">{t.pickup}</option>
+          <option value="agree">{t.agreeDelivery}</option>
+        </select>
+      </label>
+      <div className="checkout-grid">
+        <label>
+          {t.country}
+          <input
+            value={form.country}
+            onChange={(e) => update("country", e.target.value)}
+            autoComplete="country-name"
+            maxLength={80}
+            required
+          />
+        </label>
+        <label>
+          {t.city}
+          <input
+            value={form.city}
+            onChange={(e) => update("city", e.target.value)}
+            autoComplete="address-level2"
+            maxLength={100}
+            required
+          />
+        </label>
+      </div>
+      <label>
+        {t.destination}
+        <input
+          value={form.destination}
+          onChange={(e) => update("destination", e.target.value)}
+          autoComplete="street-address"
+          maxLength={160}
+          required
+        />
+      </label>
+      <label className="website-field" aria-hidden="true">
+        Website
+        <input
+          tabIndex={-1}
+          autoComplete="off"
+          value={form.website}
+          onChange={(e) => update("website", e.target.value)}
+        />
+      </label>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <button className="submit-order" type="submit" disabled={submitting}>
+        {submitting ? t.sending : `${t.sendOrder} →`}
+      </button>
+      <button className="back-cart" type="button" onClick={onBack}>
+        ← {t.backToCart}
+      </button>
+    </form>
+  );
 }

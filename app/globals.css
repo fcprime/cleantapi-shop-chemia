@@ -350,3 +350,20 @@ footer{background:#0e1814}
   .hero-photo{height:225px}
   .hero-photo .hero-products img{max-height:92%}
 }
+
+/* Automatic PLN/EUR conversion and a consistent trust-icon system. */
+.currency-switch{display:flex;align-items:center;padding:3px;border:1px solid #d8ddd8;border-radius:10px;background:#f5f7f4}
+.currency-switch button{min-width:34px;height:32px;padding:0 8px;border:0;border-radius:7px;background:transparent;color:#66716b;font-size:13px;font-weight:900;cursor:pointer}
+.currency-switch button.active{background:#173c30;color:#fff;box-shadow:0 2px 7px rgba(23,60,48,.16)}
+.trust span{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.trust svg{width:20px;height:20px;flex:0 0 20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:#168b60}
+.currency-note{margin:0 0 18px;padding:11px 14px;border:1px solid #d8e6de;border-radius:11px;background:#f3f8f5;color:#56655e;font-size:13px;line-height:1.45}
+.cart-summary>div small,.checkout-total small{display:block;margin-top:4px;color:#748078;font-size:11px;line-height:1.35}
+
+@media(max-width:700px){
+  .nav-actions{gap:5px}
+  .currency-switch{padding:2px}
+  .currency-switch button{min-width:29px;height:30px;padding:0 6px;font-size:12px}
+  .trust span{white-space:normal}
+  .trust svg{width:19px;height:19px;flex-basis:19px}
+}

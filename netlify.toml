@@ -10,3 +10,9 @@
   to = "/.netlify/functions/products"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/api/exchange-rate"
+  to = "/.netlify/functions/exchange-rate"
+  status = 200
+  force = true
