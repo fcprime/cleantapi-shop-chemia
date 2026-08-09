@@ -384,8 +384,35 @@ const PROBLEM_PRODUCT_IDS: Record<string, string[]> = {
   urine: ["16", "24", "51", "75"],
   blood: ["14", "18", "21", "26", "27", "29", "72", "76", "79", "91"],
   grease: ["8", "11", "20", "28", "31", "41", "72", "78", "79", "81", "91"],
-  drinks: ["14", "21", "25", "26", "27", "29", "72", "79"],
+  drinks: ["14", "25", "26", "27", "72", "79"],
 };
+
+const CHEMISTRY_GROUP_EXCLUSIONS: Record<string, string[]> = {
+  acidRinses: ["74"],
+  stainRemovers: ["21", "23", "29", "81"],
+  odorNeutralizers: ["10"],
+  carChemistry: [
+    "10",
+    "15",
+    "17",
+    "19",
+    "22",
+    "23",
+    "26",
+    "29",
+    "30",
+    "72",
+    "75",
+    "91",
+  ],
+};
+
+const CHEMISTRY_GROUP_INCLUSIONS: Record<string, string[]> = {
+  odorNeutralizers: ["16"],
+};
+
+const ALL_PRODUCTS_FEATURED_IDS = ["21", "19", "17", "22", "25"];
+const ALL_PRODUCTS_DEPRIORITIZED_IDS = ["13", "11", "12", "15"];
 
 const BRAND_PRODUCT_IDS: Record<string, string[]> = {
   brandChemspec: ["76", "78", "77", "79", "81", "46", "80"],
@@ -491,9 +518,19 @@ function mapProduct(row: Record<string, unknown>): Product {
     gallery = [];
   }
   const images = [...new Set([image, ...gallery].filter(Boolean))];
-  const chemistryGroups = Array.isArray(row.chemistry_groups)
+  const inferredChemistryGroups = Array.isArray(row.chemistry_groups)
     ? row.chemistry_groups.map(String)
     : inferChemistryGroups(`${name} ${row.short_desc} ${ua}`);
+  const chemistryGroups = [
+    ...new Set([
+      ...inferredChemistryGroups.filter(
+        (group) => !CHEMISTRY_GROUP_EXCLUSIONS[group]?.includes(id),
+      ),
+      ...Object.entries(CHEMISTRY_GROUP_INCLUSIONS)
+        .filter(([, ids]) => ids.includes(id))
+        .map(([group]) => group),
+    ]),
+  ];
   return {
     id,
     name,
@@ -578,6 +615,7 @@ const copy = {
     drinks: "Кава та вино",
     pets: "Сліди тварин",
     unsure: "Не знаю, що обрати",
+    unsureContact: "Написати в Telegram",
     catalogTitle: "Каталог товарів",
     catalogText: "Спочатку оберіть розділ, а потім потрібну підкатегорію.",
     professionalCatalog: "ПРОФЕСІЙНИЙ КАТАЛОГ",
@@ -667,6 +705,7 @@ const copy = {
     watchVideo: "Дивитися відео",
     closeVideo: "Закрити відео",
     searchProducts: "Пошук товару за назвою",
+    clearSearch: "Очистити пошук",
     shownProducts: "Показано",
     ofProducts: "із",
     productsWord: "товарів",
@@ -698,6 +737,7 @@ const copy = {
     drinks: "Кофе и вино",
     pets: "Следы животных",
     unsure: "Не знаю, что выбрать",
+    unsureContact: "Написать в Telegram",
     catalogTitle: "Каталог товаров",
     catalogText: "Сначала выберите раздел, а затем нужную подкатегорию.",
     professionalCatalog: "ПРОФЕССИОНАЛЬНЫЙ КАТАЛОГ",
@@ -787,6 +827,7 @@ const copy = {
     watchVideo: "Смотреть видео",
     closeVideo: "Закрыть видео",
     searchProducts: "Поиск товара по названию",
+    clearSearch: "Очистить поиск",
     shownProducts: "Показано",
     ofProducts: "из",
     productsWord: "товаров",
@@ -973,9 +1014,8 @@ export default function Home() {
     else localStorage.removeItem(CART_KEY);
   }, [cart, cartHydrated]);
 
-  const filtered = useMemo(
-    () =>
-      products.filter((p) => {
+  const filtered = useMemo(() => {
+    const matches = products.filter((p) => {
         const sectionMatch =
           category === "all" ||
           (category === "chemistry" && p.category === "chemistry") ||
@@ -1008,9 +1048,32 @@ export default function Home() {
             problem === "unsure" ||
             p.problem.includes(problem))
         );
-      }),
-    [products, category, subCategory, problem, search, lang],
-  );
+      });
+    return matches.sort((a, b) => {
+      const availabilityDifference =
+        Number(a.status !== "available") - Number(b.status !== "available");
+      if (availabilityDifference) return availabilityDifference;
+
+      if (category === "all" && problem === "all" && !search.trim()) {
+        const featuredA = ALL_PRODUCTS_FEATURED_IDS.indexOf(a.id);
+        const featuredB = ALL_PRODUCTS_FEATURED_IDS.indexOf(b.id);
+        if (featuredA !== -1 || featuredB !== -1) {
+          if (featuredA === -1) return 1;
+          if (featuredB === -1) return -1;
+          return featuredA - featuredB;
+        }
+
+        const deprioritizedA = ALL_PRODUCTS_DEPRIORITIZED_IDS.indexOf(a.id);
+        const deprioritizedB = ALL_PRODUCTS_DEPRIORITIZED_IDS.indexOf(b.id);
+        if (deprioritizedA !== -1 || deprioritizedB !== -1) {
+          if (deprioritizedA === -1) return -1;
+          if (deprioritizedB === -1) return 1;
+          return deprioritizedA - deprioritizedB;
+        }
+      }
+      return 0;
+    });
+  }, [products, category, subCategory, problem, search, lang]);
   const visibleProducts = filtered.slice(0, visibleCount);
   const bundleProducts = useMemo<Product[]>(
     () =>
@@ -1396,7 +1459,7 @@ export default function Home() {
             </span>
           </div>
           <div className="problem-grid">
-            {["urine", "blood", "grease", "drinks", "unsure"].map((id) => (
+            {["urine", "blood", "grease", "drinks"].map((id) => (
               <button
                 key={id}
                 className={problem === id ? "selected" : ""}
@@ -1407,6 +1470,17 @@ export default function Home() {
                 <b>→</b>
               </button>
             ))}
+            <a
+              className="problem-contact"
+              href="https://t.me/Vitaliiivanovich"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Icon name="unsure" />
+              <span>{t.unsure}</span>
+              <small>{t.unsureContact}</small>
+              <b>→</b>
+            </a>
           </div>
         </div>
       </section>
@@ -1578,7 +1652,7 @@ export default function Home() {
                   </div>
                 )}
                 <div className="catalog-tools">
-                  <label>
+                  <label className="catalog-search">
                     <span className="sr-only">{t.searchProducts}</span>
                     <input
                       type="search"
@@ -1590,6 +1664,20 @@ export default function Home() {
                       }}
                       placeholder={t.searchProducts}
                     />
+                    {search && (
+                      <button
+                        type="button"
+                        className="clear-search"
+                        aria-label={t.clearSearch}
+                        title={t.clearSearch}
+                        onClick={() => {
+                          setSearch("");
+                          setVisibleCount(12);
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
                   </label>
                   <p>
                     {t.shownProducts}{" "}
