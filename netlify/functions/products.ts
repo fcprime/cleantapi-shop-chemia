@@ -1,12 +1,13 @@
-import catalog from "../../app/catalog.json";
-import newProducts from "../../app/new-products.json";
+const SUPABASE_URL = "https://fwjisaaorqubsjkdyidx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_l6bWX6LMqbeDGJGO0MmrvQ_okfxJcrm";
 
 export default async () => {
-  const products = new Map(
-    [...catalog, ...newProducts].map((product) => [String(product.id), product]),
-  );
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/products?select=*&order=sort_order.asc,id.asc`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+  });
+  if (!response.ok) return Response.json({ error: "catalog_unavailable" }, { status: 502 });
 
-  return Response.json([...products.values()], {
+  return Response.json(await response.json(), {
     headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" },
   });
 };

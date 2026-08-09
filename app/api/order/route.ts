@@ -1,5 +1,3 @@
-import fallbackCatalog from "../../catalog.json";
-
 type IncomingItem = {
   productId?: unknown;
   name?: unknown;
@@ -14,6 +12,7 @@ type CatalogRow = {
   price?: unknown;
   variants?: unknown;
   in_stock?: unknown;
+  category?: unknown;
 };
 
 type VerifiedItem = {
@@ -25,13 +24,6 @@ type VerifiedItem = {
 
 const SUPABASE_URL = "https://fwjisaaorqubsjkdyidx.supabase.co";
 const SUPABASE_KEY = "sb_publishable_l6bWX6LMqbeDGJGO0MmrvQ_okfxJcrm";
-const bundleCatalog: Record<string, { name: string; price: number }> = {
-  "bundle-start": { name: "Готовий набір «Старт»", price: 330 },
-  "bundle-standard": { name: "Готовий набір «Стандарт»", price: 580 },
-  "bundle-expert": { name: "Готовий набір «Експерт»", price: 640 },
-  "bundle-auto": { name: "Готовий набір «Для хімчистки авто»", price: 505 },
-};
-
 const text = (value: unknown, max = 160) => String(value ?? "").trim().slice(0, max);
 const html = (value: unknown, max = 300) => text(value, max)
   .replaceAll("&", "&amp;")
@@ -49,12 +41,12 @@ function variantsFor(row: CatalogRow) {
   } catch {
     // Invalid variants fall back to the product's base price.
   }
-  return [{ size: "1 шт.", price: Math.max(0, Number(row.price) || 0) }];
+  return [{ size: row.category === "sets" ? "1 набір" : "1 шт.", price: Math.max(0, Number(row.price) || 0) }];
 }
 
 async function getCatalog(): Promise<CatalogRow[]> {
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/products?select=id,name,price,variants,in_stock`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/products?select=id,name,price,variants,in_stock,category&active=eq.true`, {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
       cache: "no-store",
     });
@@ -62,7 +54,7 @@ async function getCatalog(): Promise<CatalogRow[]> {
   } catch {
     // Keep ordering available during a temporary catalog service outage.
   }
-  return fallbackCatalog as CatalogRow[];
+  return [];
 }
 
 export async function POST(request: Request) {
@@ -97,11 +89,6 @@ export async function POST(request: Request) {
   const items: VerifiedItem[] = [];
   for (const incoming of rawItems) {
     const requestedId = text(incoming.productId, 80);
-    const bundle = bundleCatalog[requestedId];
-    if (bundle) {
-      items.push({ name: bundle.name, size: "1 набір", qty: Math.max(1, Math.min(99, Number(incoming.qty) || 1)), unitPrice: bundle.price });
-      continue;
-    }
     const product = catalogById.get(requestedId);
     if (!product || product.in_stock === false || product.in_stock === "false") {
       return Response.json({ error: "A product is unavailable" }, { status: 409 });
