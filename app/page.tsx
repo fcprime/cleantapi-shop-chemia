@@ -17,6 +17,7 @@ type Product = {
   sizes: { label: string; price: number }[];
   status: "available" | "low" | "waiting";
   description: { ua: string; ru: string };
+  fullDescription: { ua: string; ru: string };
   chemistryGroups: string[];
 };
 type CartItem = { productId: string; size: string; qty: number };
@@ -506,6 +507,8 @@ function mapProduct(row: Record<string, unknown>): Product {
   const id = String(row.id);
   const ua = String(row.description || row.short_desc || "");
   const ru = String(row.description_ru || ua);
+  const fullUa = String(row.full_description || "").trim();
+  const fullRu = String(row.full_description_ru || fullUa).trim();
   const name = String(row.name || "Товар");
   const nameRu = String(row.name_ru || name);
   const image = String(row.image_url || "");
@@ -547,6 +550,7 @@ function mapProduct(row: Record<string, unknown>): Product {
         ? "waiting"
         : "available",
     description: { ua, ru },
+    fullDescription: { ua: fullUa, ru: fullRu },
     chemistryGroups,
   };
 }
@@ -1100,6 +1104,7 @@ export default function Home() {
         ],
         status: "available",
         description: bundle.description,
+        fullDescription: bundle.description,
         chemistryGroups: [],
       })),
     [products, bundles, lang],
@@ -2130,6 +2135,7 @@ function BundleCard({
     sizes: [{ label: size, price: bundle.price }],
     status: "available",
     description: bundle.description,
+    fullDescription: bundle.description,
     chemistryGroups: [],
   };
   const move = (delta: number) =>
@@ -2653,6 +2659,8 @@ function ProductModal({
   const unavailable = product.status === "waiting";
   const gallery = product.images.length ? product.images : [product.image];
   const name = productName(product, lang);
+  const fullDescription =
+    product.fullDescription[lang] || product.description[lang];
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", key);
@@ -2702,7 +2710,7 @@ function ProductModal({
           <p className="brand-label">{product.brand}</p>
           <h2>{name}</h2>
           <p className="modal-kicker">{t.fullDescription}</p>
-          <p className="modal-description">{product.description[lang]}</p>
+          <ProductDescription text={fullDescription} />
           <div className="modal-sizes">
             <span>{t.size}</span>
             <div>
@@ -2729,6 +2737,40 @@ function ProductModal({
           </button>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ProductDescription({ text }: { text: string }) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="modal-description">
+      {lines.map((line, index) => {
+        const isBullet = /^[•*-]\s+/.test(line);
+        const cleanLine = isBullet ? line.replace(/^[•*-]\s+/, "") : line;
+        const isHeading =
+          !isBullet &&
+          (line.endsWith(":") ||
+            /^(переваги|спосіб застосування|застереження|преимущества|способ применения|предостережение)$/i.test(
+              line.replace(/:$/, ""),
+            ));
+
+        if (isHeading) {
+          return <h3 key={`${index}-${line}`}>{line}</h3>;
+        }
+        if (isBullet) {
+          return (
+            <p className="description-bullet" key={`${index}-${line}`}>
+              {cleanLine}
+            </p>
+          );
+        }
+        return <p key={`${index}-${line}`}>{line}</p>;
+      })}
     </div>
   );
 }
