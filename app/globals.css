@@ -366,4 +366,16 @@ footer{background:#0e1814}
   .currency-switch button{min-width:29px;height:30px;padding:0 6px;font-size:12px}
   .trust span{white-space:normal}
   .trust svg{width:19px;height:19px;flex-basis:19px}
+  .problem-grid{align-items:stretch}
+  .problem-grid button,.problem-grid .problem-contact{
+    flex:0 0 74%;
+    min-width:0;
+    min-height:136px;
+    height:136px;
+    padding:17px 48px 17px 17px;
+    gap:8px;
+  }
+  .problem-grid button svg,.problem-grid .problem-contact svg{width:29px;height:29px}
+  .problem-grid button b,.problem-grid .problem-contact b{right:15px;bottom:15px}
+  .problem-grid .problem-contact small{font-size:11px;line-height:1.25}
 }

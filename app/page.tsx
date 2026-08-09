@@ -412,7 +412,7 @@ const CHEMISTRY_GROUP_INCLUSIONS: Record<string, string[]> = {
 };
 
 const ALL_PRODUCTS_FEATURED_IDS = ["21", "19", "17", "22", "25"];
-const ALL_PRODUCTS_DEPRIORITIZED_IDS = ["13", "11", "12", "15"];
+const ALL_PRODUCTS_DEPRIORITIZED_IDS = ["13", "11", "12", "15", "18"];
 
 const BRAND_PRODUCT_IDS: Record<string, string[]> = {
   brandChemspec: ["76", "78", "77", "79", "81", "46", "80"],
@@ -1054,7 +1054,13 @@ export default function Home() {
         Number(a.status !== "available") - Number(b.status !== "available");
       if (availabilityDifference) return availabilityDifference;
 
-      if (category === "all" && problem === "all" && !search.trim()) {
+      const isMainProductList =
+        problem === "all" &&
+        !search.trim() &&
+        (category === "all" ||
+          (category === "chemistry" && subCategory === "all"));
+
+      if (isMainProductList) {
         const featuredA = ALL_PRODUCTS_FEATURED_IDS.indexOf(a.id);
         const featuredB = ALL_PRODUCTS_FEATURED_IDS.indexOf(b.id);
         if (featuredA !== -1 || featuredB !== -1) {
