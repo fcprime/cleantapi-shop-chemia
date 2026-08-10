@@ -74,7 +74,13 @@ export async function verificationResumeToken(verification: Pick<TelegramVerific
     false,
     ["sign"],
   );
-  const payload = `${verification.flow_token}:${verification.telegram_user_id}:${verification.verified_at}`;
+  // PostgreSQL may normalize the textual representation of timestamptz values
+  // (for example, `Z` becomes `+00:00`). Signing that representation made a
+  // freshly generated return link fail after the verification row was read
+  // back from Supabase. The flow token and Telegram user id are stable, while
+  // the verified_at check above ensures this token is never valid before the
+  // customer has shared their own contact.
+  const payload = `${verification.flow_token}:${verification.telegram_user_id}`;
   const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
   return Buffer.from(signature).toString("base64url");
 }

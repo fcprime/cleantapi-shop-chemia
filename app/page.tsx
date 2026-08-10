@@ -702,7 +702,7 @@ const copy = {
       "Telegram відкриється внизу екрана. Розгорніть його та виконайте 3 короткі кроки:",
     telegramVerifyStepStart: "Натисніть синю кнопку Start.",
     telegramVerifyStepPhone: "Натисніть «Поділитися номером Telegram».",
-    telegramVerifyStepReturn: "Поверніться до магазину — підтвердження з’явиться автоматично.",
+    telegramVerifyStepReturn: "У боті натисніть «Продовжити оформлення».",
     telegramVerifyButton: "Відкрити Telegram і натиснути START",
     telegramOpening: "Відкриваємо Telegram…",
     telegramWaiting: "Очікуємо підтвердження в Telegram…",
@@ -839,7 +839,7 @@ const copy = {
       "Telegram откроется внизу экрана. Разверните его и выполните 3 коротких шага:",
     telegramVerifyStepStart: "Нажмите синюю кнопку Start.",
     telegramVerifyStepPhone: "Нажмите «Поделиться номером Telegram».",
-    telegramVerifyStepReturn: "Вернитесь в магазин — подтверждение появится автоматически.",
+    telegramVerifyStepReturn: "В боте нажмите «Продолжить оформление».",
     telegramVerifyButton: "Открыть Telegram и нажать START",
     telegramOpening: "Открываем Telegram…",
     telegramWaiting: "Ожидаем подтверждение в Telegram…",
@@ -1008,7 +1008,9 @@ export default function Home() {
     } catch {
       localStorage.removeItem(CART_KEY);
     }
-    const resumeMatch = window.location.hash.match(/^#tg=([A-Za-z0-9_-]{20,40})\.([A-Za-z0-9_-]{40,60})$/);
+    const resumeValue = new URLSearchParams(window.location.search).get("telegram_resume")
+      || window.location.hash.replace(/^#tg=/, "");
+    const resumeMatch = resumeValue?.match(/^([A-Za-z0-9_-]{20,40})\.([A-Za-z0-9_-]{40,60})$/);
     if (resumeMatch) {
       const [, flowToken, resumeToken] = resumeMatch;
       setCartOpen(true);
@@ -1024,7 +1026,10 @@ export default function Home() {
             : [];
           if (restoredItems.length) setCart(restoredItems);
           setTelegramResume({ flowToken, resumeToken, ...result, status: "verified" });
-          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete("telegram_resume");
+          cleanUrl.hash = "";
+          window.history.replaceState(null, "", `${cleanUrl.pathname}${cleanUrl.search}`);
         })
         .catch(() => {});
     }

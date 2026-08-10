@@ -31,18 +31,18 @@ type TgUpdate = { update_id?: number; message?: TgMessage; callback_query?: TgCa
 const localized = (language: string | null | undefined) => language === "ru" ? {
   share: "📱 Поделиться номером Telegram",
   intro: "Чтобы подтвердить заказ, нажмите кнопку ниже и поделитесь номером, привязанным к вашему Telegram.",
-  confirmed: "✅ Telegram подтверждён. Вернитесь на сайт — подтверждение появится автоматически.",
-  return: "Вернуться в магазин",
-  returnHint: "🛒 Нажмите, чтобы вернуться к оформлению заказа:",
+  confirmed: "✅ Telegram подтверждён.",
+  return: "Продолжить оформление",
+  returnHint: "🛒 Нажмите кнопку ниже. Откроется оформление заказа с уже подтверждённым Telegram:",
   expired: "Ссылка устарела. Вернитесь на сайт и нажмите «Подтвердить через Telegram» ещё раз.",
   wrongContact: "Пожалуйста, отправьте именно свой номер через кнопку ниже.",
   noOrder: "Telegram подтверждён. Сначала завершите оформление заказа на сайте.",
 } : {
   share: "📱 Поділитися номером Telegram",
   intro: "Щоб підтвердити замовлення, натисніть кнопку нижче та поділіться номером, прив’язаним до вашого Telegram.",
-  confirmed: "✅ Telegram підтверджено. Поверніться на сайт — підтвердження з’явиться автоматично.",
-  return: "Повернутися до магазину",
-  returnHint: "🛒 Натисніть, щоб повернутися до оформлення замовлення:",
+  confirmed: "✅ Telegram підтверджено.",
+  return: "Продовжити оформлення",
+  returnHint: "🛒 Натисніть кнопку нижче. Відкриється оформлення замовлення з уже підтвердженим Telegram:",
   expired: "Посилання застаріло. Поверніться на сайт і натисніть «Підтвердити через Telegram» ще раз.",
   wrongContact: "Будь ласка, надішліть саме свій номер через кнопку нижче.",
   noOrder: "Telegram підтверджено. Спочатку завершіть оформлення замовлення на сайті.",
@@ -126,7 +126,7 @@ async function handleContact(message: TgMessage) {
       reply_markup: {
         inline_keyboard: [[{
           text: text.return,
-          url: `${url}/#tg=${verification.flow_token}.${resumeToken}`,
+          url: `${url}/?telegram_resume=${encodeURIComponent(`${verification.flow_token}.${resumeToken}`)}`,
         }]],
       },
     });
