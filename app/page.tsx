@@ -677,6 +677,15 @@ const copy = {
     name: "Ім’я та прізвище",
     phone: "Номер телефону",
     telegram: "Telegram",
+    telegramVerifyTitle: "Підтвердження Telegram",
+    telegramVerifyText:
+      "Відкрийте нашого бота та поділіться номером, прив’язаним до Telegram. Так ми отримаємо справжній контакт і зможемо відповісти вам особисто.",
+    telegramVerifyButton: "Підтвердити через Telegram",
+    telegramOpening: "Відкриваємо Telegram…",
+    telegramWaiting: "Очікуємо підтвердження в Telegram…",
+    telegramVerified: "Telegram підтверджено",
+    telegramRestart: "Підтвердити ще раз",
+    telegramRequired: "Спочатку підтвердьте Telegram через бота.",
     delivery: "Спосіб доставки",
     post: "InPost — поштомат",
     courier: "Кур’єр InPost / DHL",
@@ -689,8 +698,8 @@ const copy = {
     sending: "Надсилаємо…",
     orderSuccess: "Замовлення успішно надіслано",
     orderSuccessText:
-      "Віталій уже отримав ваше замовлення. Щоб швидше узгодити наявність і доставку, напишіть йому в Telegram.",
-    contactVitalii: "Написати Віталію в Telegram",
+      "Ми отримали ваше замовлення. Менеджер напише вам у приватному чаті CleanTapi Shop у Telegram.",
+    contactVitalii: "Відкрити чат CleanTapi Shop",
     telegramMessage:
       "Добрий день! Я сформував кошик на сайті та хочу оформити замовлення.",
     closeSuccess: "Закрити",
@@ -799,6 +808,15 @@ const copy = {
     name: "Имя и фамилия",
     phone: "Номер телефона",
     telegram: "Telegram",
+    telegramVerifyTitle: "Подтверждение Telegram",
+    telegramVerifyText:
+      "Откройте нашего бота и поделитесь номером, привязанным к Telegram. Так мы получим настоящий контакт и сможем ответить вам лично.",
+    telegramVerifyButton: "Подтвердить через Telegram",
+    telegramOpening: "Открываем Telegram…",
+    telegramWaiting: "Ожидаем подтверждение в Telegram…",
+    telegramVerified: "Telegram подтверждён",
+    telegramRestart: "Подтвердить ещё раз",
+    telegramRequired: "Сначала подтвердите Telegram через бота.",
     delivery: "Способ доставки",
     post: "InPost — почтомат",
     courier: "Курьер InPost / DHL",
@@ -811,8 +829,8 @@ const copy = {
     sending: "Отправляем…",
     orderSuccess: "Заказ успешно отправлен",
     orderSuccessText:
-      "Виталий уже получил ваш заказ. Чтобы быстрее согласовать наличие и доставку, напишите ему в Telegram.",
-    contactVitalii: "Написать Виталию в Telegram",
+      "Мы получили ваш заказ. Менеджер напишет вам в приватном чате CleanTapi Shop в Telegram.",
+    contactVitalii: "Открыть чат CleanTapi Shop",
     telegramMessage:
       "Добрый день! Я сформировал корзину на сайте и хочу оформить заказ.",
     closeSuccess: "Закрыть",
@@ -1989,7 +2007,7 @@ export default function Home() {
             <h2>{t.orderSuccess}</h2>
             <p>{t.orderSuccessText}</p>
             <a
-              href={`https://t.me/Vitaliiivanovich?text=${encodeURIComponent(t.telegramMessage)}`}
+              href="https://t.me/cleantapishop_bot"
               target="_blank"
               rel="noreferrer"
             >
@@ -2851,7 +2869,6 @@ function CheckoutForm({
   const [form, setForm] = useState({
     name: "",
     phone: "",
-    telegram: "",
     delivery: "post",
     country: "Polska",
     city: "",
@@ -2860,6 +2877,15 @@ function CheckoutForm({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [verification, setVerification] = useState<{
+    flowToken: string;
+    browserSecret: string;
+    status: "pending" | "verified" | "expired";
+    username?: string | null;
+    displayName?: string | null;
+    phone?: string | null;
+  } | null>(null);
+  const [startingVerification, setStartingVerification] = useState(false);
   const update = (key: keyof typeof form, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
   const formatPhone = (value: string) =>
@@ -2867,6 +2893,67 @@ function CheckoutForm({
       .replace(/\D/g, "")
       .slice(0, 12)
       .replace(/(\d{3})(?=\d)/g, "$1 ");
+
+  useEffect(() => {
+    if (!verification || verification.status !== "pending") return;
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const response = await fetch(
+          `/api/telegram-verification?flow=${encodeURIComponent(verification.flowToken)}`,
+          { headers: { "x-verification-secret": verification.browserSecret } },
+        );
+        if (!response.ok || cancelled) return;
+        const result = await response.json() as {
+          status: "pending" | "verified" | "expired";
+          username?: string | null;
+          displayName?: string | null;
+          phone?: string | null;
+        };
+        if (result.status !== "pending") {
+          setVerification((current) => current ? { ...current, ...result } : current);
+        }
+      } catch {}
+    };
+    void check();
+    const timer = window.setInterval(check, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [verification?.flowToken, verification?.browserSecret, verification?.status]);
+
+  const startTelegramVerification = async () => {
+    setError("");
+    setStartingVerification(true);
+    const popup = window.open("about:blank", "cleantapi-telegram-verification");
+    try {
+      const response = await fetch("/api/telegram-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: lang }),
+      });
+      if (!response.ok) throw new Error("verification");
+      const result = await response.json() as {
+        flowToken: string;
+        browserSecret: string;
+        deepLink: string;
+      };
+      setVerification({
+        flowToken: result.flowToken,
+        browserSecret: result.browserSecret,
+        status: "pending",
+      });
+      if (popup) popup.location.href = result.deepLink;
+      else window.location.href = result.deepLink;
+    } catch {
+      popup?.close();
+      setError(t.orderError);
+    } finally {
+      setStartingVerification(false);
+    }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -2878,6 +2965,10 @@ function CheckoutForm({
       !form.destination.trim()
     ) {
       setError(t.required);
+      return;
+    }
+    if (!verification || verification.status !== "verified") {
+      setError(t.telegramRequired);
       return;
     }
     setSubmitting(true);
@@ -2892,6 +2983,10 @@ function CheckoutForm({
           displayCurrency: currency,
           eurRate,
           items,
+          telegramVerification: {
+            flowToken: verification.flowToken,
+            browserSecret: verification.browserSecret,
+          },
         }),
       });
       if (!response.ok) throw new Error("order");
@@ -2944,15 +3039,47 @@ function CheckoutForm({
           />
         </div>
       </label>
-      <label>
-        {t.telegram}
-        <input
-          value={form.telegram}
-          onChange={(e) => update("telegram", e.target.value)}
-          placeholder="@username"
-          maxLength={80}
-        />
-      </label>
+      <section className={`telegram-verification ${verification?.status === "verified" ? "is-verified" : ""}`}>
+        <div className="telegram-verification-copy">
+          <span className="telegram-logo">✈</span>
+          <div>
+            <strong>{t.telegramVerifyTitle}</strong>
+            <p>{t.telegramVerifyText}</p>
+          </div>
+        </div>
+        {verification?.status === "verified" ? (
+          <div className="telegram-verified-card">
+            <span>✓</span>
+            <div>
+              <strong>{t.telegramVerified}</strong>
+              <small>
+                {verification.username ? `@${verification.username}` : verification.displayName}
+                {verification.phone ? ` · ${verification.phone}` : ""}
+              </small>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              className="telegram-verify-button"
+              type="button"
+              onClick={startTelegramVerification}
+              disabled={startingVerification || verification?.status === "pending"}
+            >
+              {startingVerification
+                ? t.telegramOpening
+                : verification?.status === "pending"
+                  ? t.telegramWaiting
+                  : verification?.status === "expired"
+                    ? t.telegramRestart
+                    : t.telegramVerifyButton}
+            </button>
+            {verification?.status === "pending" && (
+              <p className="telegram-pending"><span />{t.telegramWaiting}</p>
+            )}
+          </>
+        )}
+      </section>
       <label>
         {t.delivery}
         <select
@@ -3011,7 +3138,11 @@ function CheckoutForm({
           {error}
         </p>
       )}
-      <button className="submit-order" type="submit" disabled={submitting}>
+      <button
+        className="submit-order"
+        type="submit"
+        disabled={submitting || verification?.status !== "verified"}
+      >
         {submitting ? t.sending : `${t.sendOrder} →`}
       </button>
       <button className="back-cart" type="button" onClick={onBack}>
