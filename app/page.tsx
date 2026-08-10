@@ -679,10 +679,14 @@ const copy = {
     telegram: "Telegram",
     telegramVerifyTitle: "Підтвердження Telegram",
     telegramVerifyText:
-      "Відкрийте нашого бота та поділіться номером, прив’язаним до Telegram. Так ми отримаємо справжній контакт і зможемо відповісти вам особисто.",
-    telegramVerifyButton: "Підтвердити через Telegram",
+      "Telegram відкриється внизу екрана. Розгорніть його та виконайте 3 короткі кроки:",
+    telegramVerifyStepStart: "Натисніть синю кнопку Start.",
+    telegramVerifyStepPhone: "Натисніть «Поділитися номером Telegram».",
+    telegramVerifyStepReturn: "Поверніться до магазину — підтвердження з’явиться автоматично.",
+    telegramVerifyButton: "Відкрити Telegram і натиснути START",
     telegramOpening: "Відкриваємо Telegram…",
     telegramWaiting: "Очікуємо підтвердження в Telegram…",
+    telegramReopen: "Ще не підтвердили? Відкрити бота повторно",
     telegramVerified: "Telegram підтверджено",
     telegramRestart: "Підтвердити ще раз",
     telegramRequired: "Спочатку підтвердьте Telegram через бота.",
@@ -810,10 +814,14 @@ const copy = {
     telegram: "Telegram",
     telegramVerifyTitle: "Подтверждение Telegram",
     telegramVerifyText:
-      "Откройте нашего бота и поделитесь номером, привязанным к Telegram. Так мы получим настоящий контакт и сможем ответить вам лично.",
-    telegramVerifyButton: "Подтвердить через Telegram",
+      "Telegram откроется внизу экрана. Разверните его и выполните 3 коротких шага:",
+    telegramVerifyStepStart: "Нажмите синюю кнопку Start.",
+    telegramVerifyStepPhone: "Нажмите «Поделиться номером Telegram».",
+    telegramVerifyStepReturn: "Вернитесь в магазин — подтверждение появится автоматически.",
+    telegramVerifyButton: "Открыть Telegram и нажать START",
     telegramOpening: "Открываем Telegram…",
     telegramWaiting: "Ожидаем подтверждение в Telegram…",
+    telegramReopen: "Ещё не подтвердили? Открыть бота повторно",
     telegramVerified: "Telegram подтверждён",
     telegramRestart: "Подтвердить ещё раз",
     telegramRequired: "Сначала подтвердите Telegram через бота.",
@@ -2880,6 +2888,7 @@ function CheckoutForm({
   const [verification, setVerification] = useState<{
     flowToken: string;
     browserSecret: string;
+    deepLink: string;
     status: "pending" | "verified" | "expired";
     username?: string | null;
     displayName?: string | null;
@@ -2925,8 +2934,11 @@ function CheckoutForm({
 
   const startTelegramVerification = async () => {
     setError("");
+    if (verification?.status === "pending" && verification.deepLink) {
+      window.location.assign(verification.deepLink);
+      return;
+    }
     setStartingVerification(true);
-    const popup = window.open("about:blank", "cleantapi-telegram-verification");
     try {
       const response = await fetch("/api/telegram-verification", {
         method: "POST",
@@ -2942,12 +2954,11 @@ function CheckoutForm({
       setVerification({
         flowToken: result.flowToken,
         browserSecret: result.browserSecret,
+        deepLink: result.deepLink,
         status: "pending",
       });
-      if (popup) popup.location.href = result.deepLink;
-      else window.location.href = result.deepLink;
+      window.location.assign(result.deepLink);
     } catch {
-      popup?.close();
       setError(t.orderError);
     } finally {
       setStartingVerification(false);
@@ -3045,6 +3056,11 @@ function CheckoutForm({
           <div>
             <strong>{t.telegramVerifyTitle}</strong>
             <p>{t.telegramVerifyText}</p>
+            <ol className="telegram-verification-steps">
+              <li>{t.telegramVerifyStepStart}</li>
+              <li>{t.telegramVerifyStepPhone}</li>
+              <li>{t.telegramVerifyStepReturn}</li>
+            </ol>
           </div>
         </div>
         {verification?.status === "verified" ? (
@@ -3064,12 +3080,12 @@ function CheckoutForm({
               className="telegram-verify-button"
               type="button"
               onClick={startTelegramVerification}
-              disabled={startingVerification || verification?.status === "pending"}
+              disabled={startingVerification}
             >
               {startingVerification
                 ? t.telegramOpening
                 : verification?.status === "pending"
-                  ? t.telegramWaiting
+                  ? t.telegramReopen
                   : verification?.status === "expired"
                     ? t.telegramRestart
                     : t.telegramVerifyButton}
