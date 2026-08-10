@@ -19,6 +19,10 @@ type ForumTopic = { message_thread_id: number; name: string };
 const SUPABASE_URL = "https://fwjisaaorqubsjkdyidx.supabase.co";
 const SUPABASE_KEY = "sb_publishable_l6bWX6LMqbeDGJGO0MmrvQ_okfxJcrm";
 
+// Temporary order routing switch. Keep this false to send every simplified
+// checkout order into one shared Telegram chat without creating client topics.
+const SIMPLE_ORDER_TOPICS_ENABLED = false;
+
 async function productIndex() {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/products?select=id,name,price,variants,in_stock,category&active=eq.true`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
@@ -93,11 +97,15 @@ export default async (request: Request, _context: Context) => {
 
       const total = checked.reduce((sum, item) => sum + item.qty * item.price, 0);
       const orderNumber = `S${Date.now().toString().slice(-8)}`;
-      const topic = await telegram<ForumTopic>("createForumTopic", {
-        chat_id: managerChatId(),
-        name: `🟢 #${orderNumber} — ${clean(name, 70)}`,
-        icon_color: 9367192,
-      });
+      let messageThreadId: number | undefined;
+      if (SIMPLE_ORDER_TOPICS_ENABLED) {
+        const topic = await telegram<ForumTopic>("createForumTopic", {
+          chat_id: managerChatId(),
+          name: `🟢 #${orderNumber} — ${clean(name, 70)}`,
+          icon_color: 9367192,
+        });
+        messageThreadId = topic.message_thread_id;
+      }
       const itemLines = checked.map((item, index) =>
         `${index + 1}. ${escapeHtml(item.name)} — ${escapeHtml(item.size)} — ${item.qty} шт. × ${item.price} zł`
       );
@@ -113,7 +121,7 @@ export default async (request: Request, _context: Context) => {
       ].join("\n");
       await telegram("sendMessage", {
         chat_id: managerChatId(),
-        message_thread_id: topic.message_thread_id,
+        ...(messageThreadId ? { message_thread_id: messageThreadId } : {}),
         text: message,
         parse_mode: "HTML",
         disable_web_page_preview: true,
