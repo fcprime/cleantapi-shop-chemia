@@ -56,6 +56,71 @@ export default async (request: Request, _context: Context) => {
     if (!body) return Response.json({ error: "Invalid request" }, { status: 400 });
     if (clean(body.website)) return Response.json({ ok: true });
 
+    // Temporary simplified checkout. The verified Telegram flow below remains
+    // intact and can be restored from the UI with SIMPLE_CHECKOUT = false.
+    if (clean(body.checkoutMode, 20) === "simple") {
+      const name = clean(body.name, 100);
+      const phone = clean(body.phone, 40);
+      const telegramUsername = clean(body.telegramUsername, 64)
+        .replace(/^https?:\/\/(?:www\.)?t\.me\//i, "")
+        .replace(/^t\.me\//i, "")
+        .replace(/^@/, "")
+        .split(/[/?#]/)[0];
+      const incoming = Array.isArray(body.items) ? body.items.slice(0, 50) as Item[] : [];
+      if (
+        name.length < 2 ||
+        phone.replace(/\D/g, "").length < 6 ||
+        !/^[A-Za-z0-9_]{5,32}$/.test(telegramUsername) ||
+        !incoming.length
+      ) {
+        return Response.json({ error: "missing_fields" }, { status: 400 });
+      }
+
+      const checked: { productId: string; name: string; size: string; qty: number; price: number }[] = [];
+      const allProducts = await productIndex();
+      for (const item of incoming) {
+        const id = clean(item.productId, 80);
+        const qty = Math.max(1, Math.min(99, Number(item.qty) || 1));
+        const product = allProducts.get(id);
+        if (!product || product.in_stock === false) {
+          return Response.json({ error: "unavailable_product" }, { status: 409 });
+        }
+        const size = clean(item.size, 60);
+        const variant = variants(product).find((entry) => entry.size === size);
+        if (!variant) return Response.json({ error: "invalid_variant" }, { status: 409 });
+        checked.push({ productId: id, name: product.name, size, qty, price: variant.price });
+      }
+
+      const total = checked.reduce((sum, item) => sum + item.qty * item.price, 0);
+      const orderNumber = `S${Date.now().toString().slice(-8)}`;
+      const topic = await telegram<ForumTopic>("createForumTopic", {
+        chat_id: managerChatId(),
+        name: `🟢 #${orderNumber} — ${clean(name, 70)}`,
+        icon_color: 9367192,
+      });
+      const itemLines = checked.map((item, index) =>
+        `${index + 1}. ${escapeHtml(item.name)} — ${escapeHtml(item.size)} — ${item.qty} шт. × ${item.price} zł`
+      );
+      const message = [
+        `🔔 <b>ЗАМОВЛЕННЯ #${orderNumber}</b>`, "",
+        `👤 Клієнт: ${escapeHtml(name)}`,
+        `📞 Телефон: ${escapeHtml(phone)}`,
+        `💬 Telegram: <a href="https://t.me/${telegramUsername}">@${escapeHtml(telegramUsername)}</a>`,
+        `🚚 Доставка: узгодити з клієнтом`, "",
+        "📦 <b>Товари:</b>", ...itemLines, "",
+        `💰 <b>РАЗОМ: ${total} zł</b>`, "",
+        "Напишіть клієнту за вказаним Telegram або номером телефону.",
+      ].join("\n");
+      await telegram("sendMessage", {
+        chat_id: managerChatId(),
+        message_thread_id: topic.message_thread_id,
+        text: message,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      });
+      return Response.json({ ok: true, orderNumber });
+    }
+
     const verificationBody = body.telegramVerification as Record<string, unknown> | undefined;
     const flowToken = clean(verificationBody?.flowToken, 40);
     const browserSecret = clean(verificationBody?.browserSecret, 100);

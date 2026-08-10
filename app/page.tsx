@@ -27,6 +27,7 @@ type CheckoutDraft = {
   name?: string;
   phone?: string;
   phoneCode?: string;
+  telegramUsername?: string;
   delivery?: string;
   country?: string;
   city?: string;
@@ -73,6 +74,9 @@ type CuratedProduct = {
 
 const CART_KEY = "cleantapi-cart-v1";
 const CHECKOUT_DRAFT_KEY = "cleantapi-checkout-draft-v1";
+// Temporary simplified checkout for the current sales workflow. Set to false
+// to restore the verified Telegram + delivery flow kept below.
+const SIMPLE_CHECKOUT = true;
 const CART_TTL = 24 * 60 * 60 * 1000;
 const EUR_RATE_KEY = "cleantapi-eur-rate-v1";
 const DEFAULT_EUR_RATE = 4.25;
@@ -697,6 +701,10 @@ const copy = {
     name: "Ім’я та прізвище",
     phone: "Номер телефону",
     telegram: "Telegram",
+    telegramUsername: "Ваш Telegram",
+    telegramUsernamePlaceholder: "@username",
+    telegramUsernameHint: "Де знайти: Telegram → Налаштування → Ім’я користувача.",
+    telegramUsernameInvalid: "Вкажіть коректне ім’я користувача Telegram, наприклад @username.",
     telegramVerifyTitle: "Підтвердження Telegram",
     telegramVerifyText:
       "Telegram відкриється внизу екрана. Розгорніть його та виконайте 3 короткі кроки:",
@@ -722,8 +730,8 @@ const copy = {
     sending: "Надсилаємо…",
     orderSuccess: "Замовлення успішно надіслано",
     orderSuccessText:
-      "Ми отримали ваше замовлення. Менеджер напише вам у приватному чаті CleanTapi Shop у Telegram.",
-    contactVitalii: "Відкрити чат CleanTapi Shop",
+      "Ми отримали ваше замовлення. Зараз відкриється чат із Віталієм у Telegram.",
+    contactVitalii: "Відкрити чат із Віталієм",
     telegramMessage:
       "Добрий день! Я сформував кошик на сайті та хочу оформити замовлення.",
     closeSuccess: "Закрити",
@@ -834,6 +842,10 @@ const copy = {
     name: "Имя и фамилия",
     phone: "Номер телефона",
     telegram: "Telegram",
+    telegramUsername: "Ваш Telegram",
+    telegramUsernamePlaceholder: "@username",
+    telegramUsernameHint: "Где найти: Telegram → Настройки → Имя пользователя.",
+    telegramUsernameInvalid: "Укажите корректное имя пользователя Telegram, например @username.",
     telegramVerifyTitle: "Подтверждение Telegram",
     telegramVerifyText:
       "Telegram откроется внизу экрана. Разверните его и выполните 3 коротких шага:",
@@ -859,8 +871,8 @@ const copy = {
     sending: "Отправляем…",
     orderSuccess: "Заказ успешно отправлен",
     orderSuccessText:
-      "Мы получили ваш заказ. Менеджер напишет вам в приватном чате CleanTapi Shop в Telegram.",
-    contactVitalii: "Открыть чат CleanTapi Shop",
+      "Мы получили ваш заказ. Сейчас откроется чат с Виталием в Telegram.",
+    contactVitalii: "Открыть чат с Виталием",
     telegramMessage:
       "Добрый день! Я сформировал корзину на сайте и хочу оформить заказ.",
     closeSuccess: "Закрыть",
@@ -2066,7 +2078,7 @@ export default function Home() {
             <h2>{t.orderSuccess}</h2>
             <p>{t.orderSuccessText}</p>
             <a
-              href="https://t.me/cleantapishop_bot"
+              href="https://t.me/Vitaliiivanovich"
               target="_blank"
               rel="noreferrer"
             >
@@ -2930,6 +2942,7 @@ function CheckoutForm({
   const [form, setForm] = useState({
     name: "",
     phone: "",
+    telegramUsername: "",
     delivery: "post",
     country: "Polska",
     city: "",
@@ -2966,6 +2979,7 @@ function CheckoutForm({
           ...current,
           name: saved.name || "",
           phone: saved.phone || "",
+          telegramUsername: saved.telegramUsername || "",
           delivery: saved.delivery || "post",
           country: saved.country || "Polska",
           city: saved.city || "",
@@ -3083,17 +3097,25 @@ function CheckoutForm({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const telegramUsername = form.telegramUsername
+      .trim()
+      .replace(/^https?:\/\/(?:www\.)?t\.me\//i, "")
+      .replace(/^t\.me\//i, "")
+      .replace(/^@/, "")
+      .split(/[/?#]/)[0];
     if (
       !form.name.trim() ||
       form.phone.replace(/\D/g, "").length < 6 ||
-      !form.country.trim() ||
-      !form.city.trim() ||
-      !form.destination.trim()
+      (!SIMPLE_CHECKOUT && (!form.country.trim() || !form.city.trim() || !form.destination.trim()))
     ) {
       setError(t.required);
       return;
     }
-    if (!verification || verification.status !== "verified") {
+    if (SIMPLE_CHECKOUT && !/^[A-Za-z0-9_]{5,32}$/.test(telegramUsername)) {
+      setError(t.telegramUsernameInvalid);
+      return;
+    }
+    if (!SIMPLE_CHECKOUT && (!verification || verification.status !== "verified")) {
       setError(t.telegramRequired);
       return;
     }
@@ -3104,16 +3126,18 @@ function CheckoutForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          checkoutMode: SIMPLE_CHECKOUT ? "simple" : "verified",
+          telegramUsername,
           phone: `${phoneCode} ${form.phone}`.trim(),
           language: lang,
           displayCurrency: currency,
           eurRate,
           items,
-          telegramVerification: {
+          telegramVerification: verification ? {
             flowToken: verification.flowToken,
             browserSecret: verification.browserSecret,
             resumeToken: verification.resumeToken,
-          },
+          } : undefined,
         }),
       });
       if (!response.ok) {
@@ -3127,6 +3151,12 @@ function CheckoutForm({
       }
       localStorage.removeItem(CHECKOUT_DRAFT_KEY);
       onSuccess();
+      if (SIMPLE_CHECKOUT) {
+        const message = lang === "ru"
+          ? "Здравствуйте! Я оформил заказ на сайте CleanTapi Shop."
+          : "Добрий день! Я оформив замовлення на сайті CleanTapi Shop.";
+        window.location.href = `https://t.me/Vitaliiivanovich?text=${encodeURIComponent(message)}`;
+      }
     } catch (error) {
       const code = error instanceof Error ? error.message : "order";
       setError(code === "product" ? t.orderProductError : code === "verification" ? t.telegramRequired : code === "setup" ? t.orderSetupError : t.orderError);
@@ -3176,7 +3206,23 @@ function CheckoutForm({
           />
         </div>
       </label>
-      <section className={`telegram-verification ${verification?.status === "verified" ? "is-verified" : ""}`}>
+      <label>
+        {t.telegramUsername}
+        <input
+          value={form.telegramUsername}
+          onChange={(e) => update("telegramUsername", e.target.value)}
+          inputMode="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder={t.telegramUsernamePlaceholder}
+          maxLength={64}
+          required
+        />
+        <small className="field-hint">{t.telegramUsernameHint}</small>
+      </label>
+      {/* Temporarily hidden. Set SIMPLE_CHECKOUT to false to restore verified Telegram. */}
+      {!SIMPLE_CHECKOUT && <section className={`telegram-verification ${verification?.status === "verified" ? "is-verified" : ""}`}>
         <div className="telegram-verification-copy">
           <span className="telegram-logo">✈</span>
           <div>
@@ -3221,7 +3267,9 @@ function CheckoutForm({
             )}
           </>
         )}
-      </section>
+      </section>}
+      {/* Temporarily hidden. Set SIMPLE_CHECKOUT to false to restore delivery fields. */}
+      {!SIMPLE_CHECKOUT && <>
       <label>
         {t.delivery}
         <select
@@ -3266,6 +3314,7 @@ function CheckoutForm({
           required
         />
       </label>
+      </>}
       <label className="website-field" aria-hidden="true">
         Website
         <input
@@ -3283,7 +3332,7 @@ function CheckoutForm({
       <button
         className="submit-order"
         type="submit"
-        disabled={submitting || verification?.status !== "verified"}
+        disabled={submitting || (!SIMPLE_CHECKOUT && verification?.status !== "verified")}
       >
         {submitting ? t.sending : `${t.sendOrder} →`}
       </button>
