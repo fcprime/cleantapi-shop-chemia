@@ -23,6 +23,25 @@ type Product = {
 };
 type CartItem = { productId: string; size: string; qty: number };
 type OrderItem = CartItem & { name: string; unitPrice: number };
+type CheckoutDraft = {
+  name?: string;
+  phone?: string;
+  phoneCode?: string;
+  delivery?: string;
+  country?: string;
+  city?: string;
+  destination?: string;
+  items?: CartItem[];
+};
+type TelegramResume = {
+  flowToken: string;
+  resumeToken: string;
+  status: "verified";
+  username?: string | null;
+  displayName?: string | null;
+  phone?: string | null;
+  draft?: CheckoutDraft | null;
+};
 type VideoItem = {
   id: string;
   type: "chemistry" | "equipment";
@@ -53,6 +72,7 @@ type CuratedProduct = {
 };
 
 const CART_KEY = "cleantapi-cart-v1";
+const CHECKOUT_DRAFT_KEY = "cleantapi-checkout-draft-v1";
 const CART_TTL = 24 * 60 * 60 * 1000;
 const EUR_RATE_KEY = "cleantapi-eur-rate-v1";
 const DEFAULT_EUR_RATE = 4.25;
@@ -708,6 +728,8 @@ const copy = {
       "Добрий день! Я сформував кошик на сайті та хочу оформити замовлення.",
     closeSuccess: "Закрити",
     orderError: "Не вдалося надіслати замовлення. Спробуйте ще раз.",
+    orderSetupError: "Замовлення не передалося менеджеру. Перевірте налаштування Telegram-групи в Netlify.",
+    orderProductError: "Один із товарів або вибраних об’ємів уже недоступний. Поверніться до кошика й оновіть вибір.",
     required: "Заповніть обов’язкові поля.",
     backToCart: "Повернутися до кошика",
     trainingTitle: "Курс із професійної хімчистки",
@@ -843,6 +865,8 @@ const copy = {
       "Добрый день! Я сформировал корзину на сайте и хочу оформить заказ.",
     closeSuccess: "Закрыть",
     orderError: "Не удалось отправить заказ. Попробуйте ещё раз.",
+    orderSetupError: "Заказ не передался менеджеру. Проверьте настройки Telegram-группы в Netlify.",
+    orderProductError: "Один из товаров или выбранных объёмов уже недоступен. Вернитесь в корзину и обновите выбор.",
     required: "Заполните обязательные поля.",
     backToCart: "Вернуться в корзину",
     trainingTitle: "Курс по профессиональной химчистке",
@@ -947,6 +971,7 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [telegramResume, setTelegramResume] = useState<TelegramResume | null>(null);
   const [orderComplete, setOrderComplete] = useState(false);
   const [toast, setToast] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -982,6 +1007,26 @@ export default function Home() {
       else localStorage.removeItem(CART_KEY);
     } catch {
       localStorage.removeItem(CART_KEY);
+    }
+    const resumeMatch = window.location.hash.match(/^#tg=([A-Za-z0-9_-]{20,40})\.([A-Za-z0-9_-]{40,60})$/);
+    if (resumeMatch) {
+      const [, flowToken, resumeToken] = resumeMatch;
+      setCartOpen(true);
+      setCheckoutOpen(true);
+      fetch(`/api/telegram-verification?flow=${encodeURIComponent(flowToken)}`, {
+        headers: { "x-verification-resume": resumeToken },
+      })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error("resume")))
+        .then((result: Omit<TelegramResume, "flowToken" | "resumeToken">) => {
+          if (result.status !== "verified") throw new Error("resume");
+          const restoredItems = Array.isArray(result.draft?.items)
+            ? result.draft.items.filter((item) => item?.productId && item?.size && Number(item.qty) > 0)
+            : [];
+          if (restoredItems.length) setCart(restoredItems);
+          setTelegramResume({ flowToken, resumeToken, ...result, status: "verified" });
+          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+        })
+        .catch(() => {});
     }
     setCartHydrated(true);
     fetch(`/api/products`)
@@ -1905,6 +1950,7 @@ export default function Home() {
                 total={total}
                 currency={currency}
                 eurRate={eurRate}
+                initialResume={telegramResume}
                 onBack={() => setCheckoutOpen(false)}
                 onSuccess={() => {
                   setCart([]);
@@ -2843,6 +2889,7 @@ function CheckoutForm({
   total,
   currency,
   eurRate,
+  initialResume,
   onBack,
   onSuccess,
 }: {
@@ -2852,6 +2899,7 @@ function CheckoutForm({
   total: number;
   currency: Currency;
   eurRate: number;
+  initialResume: TelegramResume | null;
   onBack: () => void;
   onSuccess: () => void;
 }) {
@@ -2884,6 +2932,7 @@ function CheckoutForm({
     website: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [draftHydrated, setDraftHydrated] = useState(false);
   const [error, setError] = useState("");
   const [verification, setVerification] = useState<{
     flowToken: string;
@@ -2893,6 +2942,7 @@ function CheckoutForm({
     username?: string | null;
     displayName?: string | null;
     phone?: string | null;
+    resumeToken?: string;
   } | null>(null);
   const [startingVerification, setStartingVerification] = useState(false);
   const update = (key: keyof typeof form, value: string) =>
@@ -2902,6 +2952,57 @@ function CheckoutForm({
       .replace(/\D/g, "")
       .slice(0, 12)
       .replace(/(\d{3})(?=\d)/g, "$1 ");
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CHECKOUT_DRAFT_KEY) || "null") as CheckoutDraft | null;
+      if (saved) {
+        setForm((current) => ({
+          ...current,
+          name: saved.name || "",
+          phone: saved.phone || "",
+          delivery: saved.delivery || "post",
+          country: saved.country || "Polska",
+          city: saved.city || "",
+          destination: saved.destination || "",
+        }));
+        if (saved.phoneCode) setPhoneCode(saved.phoneCode);
+      }
+    } catch {
+      localStorage.removeItem(CHECKOUT_DRAFT_KEY);
+    }
+    setDraftHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!initialResume) return;
+    const draft = initialResume.draft || {};
+    setForm((current) => ({
+      ...current,
+      name: draft.name || current.name,
+      phone: draft.phone || current.phone,
+      delivery: draft.delivery || current.delivery,
+      country: draft.country || current.country,
+      city: draft.city || current.city,
+      destination: draft.destination || current.destination,
+    }));
+    if (draft.phoneCode) setPhoneCode(draft.phoneCode);
+    setVerification({
+      flowToken: initialResume.flowToken,
+      browserSecret: "",
+      resumeToken: initialResume.resumeToken,
+      deepLink: "",
+      status: "verified",
+      username: initialResume.username,
+      displayName: initialResume.displayName,
+      phone: initialResume.phone,
+    });
+  }, [initialResume]);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+    localStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ ...form, phoneCode }));
+  }, [form, phoneCode, draftHydrated]);
 
   useEffect(() => {
     if (!verification || verification.status !== "pending") return;
@@ -2935,7 +3036,8 @@ function CheckoutForm({
   const startTelegramVerification = async () => {
     setError("");
     if (verification?.status === "pending" && verification.deepLink) {
-      window.location.assign(verification.deepLink);
+      const url = new URL(verification.deepLink);
+      window.location.href = `tg://resolve?domain=${url.pathname.slice(1)}&start=${url.searchParams.get("start") || ""}`;
       return;
     }
     setStartingVerification(true);
@@ -2943,7 +3045,14 @@ function CheckoutForm({
       const response = await fetch("/api/telegram-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: lang }),
+        body: JSON.stringify({
+          language: lang,
+          draft: {
+            ...form,
+            phoneCode,
+            items: items.map(({ productId, size, qty }) => ({ productId, size, qty })),
+          },
+        }),
       });
       if (!response.ok) throw new Error("verification");
       const result = await response.json() as {
@@ -2957,7 +3066,8 @@ function CheckoutForm({
         deepLink: result.deepLink,
         status: "pending",
       });
-      window.location.assign(result.deepLink);
+      const url = new URL(result.deepLink);
+      window.location.href = `tg://resolve?domain=${url.pathname.slice(1)}&start=${url.searchParams.get("start") || ""}`;
     } catch {
       setError(t.orderError);
     } finally {
@@ -2997,13 +3107,24 @@ function CheckoutForm({
           telegramVerification: {
             flowToken: verification.flowToken,
             browserSecret: verification.browserSecret,
+            resumeToken: verification.resumeToken,
           },
         }),
       });
-      if (!response.ok) throw new Error("order");
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        if (["unavailable_product", "invalid_variant"].includes(result.error || "")) {
+          throw new Error("product");
+        }
+        if (result.error === "telegram_verification_required") throw new Error("verification");
+        if (result.error === "order_service_unavailable") throw new Error("setup");
+        throw new Error("order");
+      }
+      localStorage.removeItem(CHECKOUT_DRAFT_KEY);
       onSuccess();
-    } catch {
-      setError(t.orderError);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "order";
+      setError(code === "product" ? t.orderProductError : code === "verification" ? t.telegramRequired : code === "setup" ? t.orderSetupError : t.orderError);
     } finally {
       setSubmitting(false);
     }

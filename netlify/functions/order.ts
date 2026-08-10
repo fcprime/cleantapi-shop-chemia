@@ -6,9 +6,9 @@ import {
   escapeHtml,
   findVerification,
   managerChatId,
-  sha256,
   supabase,
   telegram,
+  validVerificationSecret,
 } from "./_shared/shop";
 
 type Item = { productId?: unknown; size?: unknown; qty?: unknown };
@@ -49,7 +49,7 @@ export default async (request: Request, _context: Context) => {
   if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
   try {
     if (!env("TELEGRAM_BOT_TOKEN") || !managerChatId()) {
-      return Response.json({ error: "Order service unavailable" }, { status: 503 });
+      return Response.json({ error: "order_service_unavailable" }, { status: 503 });
     }
 
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -59,6 +59,7 @@ export default async (request: Request, _context: Context) => {
     const verificationBody = body.telegramVerification as Record<string, unknown> | undefined;
     const flowToken = clean(verificationBody?.flowToken, 40);
     const browserSecret = clean(verificationBody?.browserSecret, 100);
+    const resumeToken = clean(verificationBody?.resumeToken, 100);
     const verification = flowToken ? await findVerification(flowToken) : null;
     if (
       !verification ||
@@ -68,9 +69,9 @@ export default async (request: Request, _context: Context) => {
       !verification.telegram_chat_id ||
       !verification.telegram_phone ||
       Date.parse(verification.expires_at) <= Date.now() ||
-      verification.browser_secret_hash !== await sha256(browserSecret)
+      !await validVerificationSecret(verification, browserSecret, resumeToken)
     ) {
-      return Response.json({ error: "Telegram verification required" }, { status: 403 });
+      return Response.json({ error: "telegram_verification_required" }, { status: 403 });
     }
 
     const name = clean(body.name, 100), phone = clean(body.phone, 40), country = clean(body.country, 80);
@@ -78,7 +79,7 @@ export default async (request: Request, _context: Context) => {
     const language = clean(body.language, 2) === "ru" ? "ru" : "ua";
     const incoming = Array.isArray(body.items) ? body.items.slice(0, 50) as Item[] : [];
     if (name.length < 2 || phone.length < 6 || !country || !city || !destination || !incoming.length) {
-      return Response.json({ error: "Missing fields" }, { status: 400 });
+      return Response.json({ error: "missing_fields" }, { status: 400 });
     }
 
     const verified: { productId: string; name: string; size: string; qty: number; price: number }[] = [];
@@ -86,9 +87,9 @@ export default async (request: Request, _context: Context) => {
     for (const item of incoming) {
       const id = clean(item.productId, 80), qty = Math.max(1, Math.min(99, Number(item.qty) || 1));
       const product = allProducts.get(id);
-      if (!product || product.in_stock === false) return Response.json({ error: "Unavailable product" }, { status: 409 });
+      if (!product || product.in_stock === false) return Response.json({ error: "unavailable_product" }, { status: 409 });
       const size = clean(item.size, 60), variant = variants(product).find((entry) => entry.size === size);
-      if (!variant) return Response.json({ error: "Invalid variant" }, { status: 409 });
+      if (!variant) return Response.json({ error: "invalid_variant" }, { status: 409 });
       verified.push({ productId: id, name: product.name, size, qty, price: variant.price });
     }
 
@@ -197,7 +198,7 @@ export default async (request: Request, _context: Context) => {
     return Response.json({ ok: true, orderNumber: order.order_number });
   } catch (error) {
     console.error("Order processing failed", error);
-    return Response.json({ error: "Order service unavailable" }, { status: 503 });
+    return Response.json({ error: "order_service_unavailable" }, { status: 503 });
   }
 };
 

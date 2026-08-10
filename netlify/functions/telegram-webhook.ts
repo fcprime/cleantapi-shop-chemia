@@ -9,6 +9,7 @@ import {
   siteUrl,
   supabase,
   telegram,
+  verificationResumeToken,
 } from "./_shared/shop";
 
 type TgUser = { id: number; is_bot?: boolean; first_name?: string; last_name?: string; username?: string };
@@ -97,16 +98,22 @@ async function handleContact(message: TgMessage) {
     await telegram("sendMessage", { chat_id: message.chat.id, text: localized("ua").expired });
     return;
   }
+  const verifiedAt = new Date().toISOString();
   await supabase(`telegram_verifications?flow_token=eq.${encodeURIComponent(verification.flow_token)}`, {
     method: "PATCH",
     headers: { Prefer: "return=minimal" },
     body: JSON.stringify({
       telegram_phone: clean(message.contact.phone_number, 40),
-      verified_at: new Date().toISOString(),
+      verified_at: verifiedAt,
     }),
   });
   const text = localized(verification.language);
   const url = siteUrl();
+  const resumeToken = await verificationResumeToken({
+    flow_token: verification.flow_token,
+    telegram_user_id: message.from.id,
+    verified_at: verifiedAt,
+  });
   await telegram("sendMessage", {
     chat_id: message.chat.id,
     text: text.confirmed,
@@ -116,7 +123,12 @@ async function handleContact(message: TgMessage) {
     await telegram("sendMessage", {
       chat_id: message.chat.id,
       text: text.returnHint,
-      reply_markup: { inline_keyboard: [[{ text: text.return, url }]] },
+      reply_markup: {
+        inline_keyboard: [[{
+          text: text.return,
+          url: `${url}/#tg=${verification.flow_token}.${resumeToken}`,
+        }]],
+      },
     });
   }
 }

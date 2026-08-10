@@ -16,6 +16,7 @@ export type TelegramVerification = {
   verified_at: string | null;
   used_at: string | null;
   expires_at: string;
+  checkout_draft: Record<string, unknown> | null;
 };
 
 export type ShopOrder = {
@@ -61,6 +62,40 @@ export async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Buffer.from(digest).toString("hex");
+}
+
+export async function verificationResumeToken(verification: Pick<TelegramVerification, "flow_token" | "telegram_user_id" | "verified_at">) {
+  const secret = env("TELEGRAM_WEBHOOK_SECRET");
+  if (!secret || !verification.telegram_user_id || !verification.verified_at) return "";
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const payload = `${verification.flow_token}:${verification.telegram_user_id}:${verification.verified_at}`;
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  return Buffer.from(signature).toString("base64url");
+}
+
+function sameSecret(left: string, right: string) {
+  if (!left || left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+export async function validVerificationSecret(
+  verification: TelegramVerification,
+  browserSecret: string,
+  resumeToken: string,
+) {
+  if (browserSecret && verification.browser_secret_hash === await sha256(browserSecret)) return true;
+  if (!resumeToken || !verification.verified_at) return false;
+  return sameSecret(resumeToken, await verificationResumeToken(verification));
 }
 
 export async function supabase<T>(path: string, init: RequestInit = {}): Promise<T> {
