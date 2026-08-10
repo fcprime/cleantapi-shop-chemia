@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import CookieConsent from "./components/CookieConsent";
 
 type Language = "ua" | "ru";
 type Currency = "PLN" | "EUR";
@@ -53,15 +54,19 @@ type CuratedProduct = {
 
 const CART_KEY = "cleantapi-cart-v1";
 const CART_TTL = 24 * 60 * 60 * 1000;
-const CURRENCY_KEY = "cleantapi-currency-v1";
 const EUR_RATE_KEY = "cleantapi-eur-rate-v1";
 const DEFAULT_EUR_RATE = 4.25;
 
-function money(valuePln: number, currency: Currency, eurRate: number) {
-  if (currency === "EUR") {
-    return `${new Intl.NumberFormat("uk-UA", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(valuePln / eurRate)} €`;
-  }
-  return `${new Intl.NumberFormat("pl-PL", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(valuePln)} zł`;
+function money(valuePln: number, _currency: Currency, eurRate: number) {
+  const pln = new Intl.NumberFormat("pl-PL", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(valuePln);
+  const eur = new Intl.NumberFormat("uk-UA", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(valuePln / eurRate);
+  return `${pln} zł · ≈ ${eur} €`;
 }
 
 const videoItems: VideoItem[] = [
@@ -142,8 +147,8 @@ const legacyBundles: Bundle[] = [
     title: { ua: "Готовий набір «Старт»", ru: "Готовый набор «Старт»" },
     price: 330,
     description: {
-      ua: "Мінімальний стартовий набір хімії для хімчистки меблів, сидінь авто та килимів. Цих засобів вистачить на хімчистку 8–10 диванів. Ціна вже з доставкою по Польщі.",
-      ru: "Минимальный стартовый набор химии для химчистки мебели, сидений авто и ковров. Средств хватит на химчистку 8–10 диванов. Цена уже с доставкой по Польше.",
+      ua: "Мінімальний стартовий набір хімії для хімчистки меблів, сидінь авто та килимів. Цих засобів вистачить на хімчистку 8–10 диванів. Вартість доставки уточнюється під час оформлення.",
+      ru: "Минимальный стартовый набор химии для химчистки мебели, сидений авто и ковров. Средств хватит на химчистку 8–10 диванов. Стоимость доставки уточняется при оформлении.",
     },
     items: [
       { productId: "21", name: "Global Enzym", amount: "300 г" },
@@ -161,8 +166,8 @@ const legacyBundles: Bundle[] = [
     title: { ua: "Готовий набір «Стандарт»", ru: "Готовый набор «Стандарт»" },
     price: 580,
     description: {
-      ua: "Стандартний набір засобів для хімчистки меблів, сидінь авто та килимів. Цих засобів буде достатньо для хімчистки 35–45 диванів. Ціна вже з доставкою по Польщі.",
-      ru: "Стандартный набор средств для химчистки мебели, сидений авто и ковров. Средств будет достаточно для химчистки 35–45 диванов. Цена уже с доставкой по Польше.",
+      ua: "Стандартний набір засобів для хімчистки меблів, сидінь авто та килимів. Цих засобів буде достатньо для хімчистки 35–45 диванів. Вартість доставки уточнюється під час оформлення.",
+      ru: "Стандартный набор средств для химчистки мебели, сидений авто и ковров. Средств будет достаточно для химчистки 35–45 диванов. Стоимость доставки уточняется при оформлении.",
     },
     items: [
       { productId: "21", name: "Global Enzym", amount: "300 г" },
@@ -191,8 +196,8 @@ const legacyBundles: Bundle[] = [
     title: { ua: "Готовий набір «Експерт»", ru: "Готовый набор «Эксперт»" },
     price: 640,
     description: {
-      ua: "Набір «Експерт» — майстер хімчистки. Цих засобів буде достатньо для хімчистки 35–45 диванів. Ціна вже з доставкою по Польщі.",
-      ru: "Набор «Эксперт» — мастер химчистки. Средств будет достаточно для химчистки 35–45 диванов. Цена уже с доставкой по Польше.",
+      ua: "Набір «Експерт» — майстер хімчистки. Цих засобів буде достатньо для хімчистки 35–45 диванів. Вартість доставки уточнюється під час оформлення.",
+      ru: "Набор «Эксперт» — мастер химчистки. Средств будет достаточно для химчистки 35–45 диванов. Стоимость доставки уточняется при оформлении.",
     },
     items: [
       { productId: "29", name: "World of Clean Shockwave", amount: "1 кг" },
@@ -227,8 +232,8 @@ const legacyBundles: Bundle[] = [
     },
     price: 505,
     description: {
-      ua: "Комплект засобів для професійної хімчистки авто. Все необхідне в одному наборі. Ціна вже з доставкою по Польщі.",
-      ru: "Комплект средств для профессиональной химчистки авто. Всё необходимое в одном наборе. Цена уже с доставкой по Польше.",
+      ua: "Комплект засобів для професійної хімчистки авто. Все необхідне в одному наборі. Вартість доставки уточнюється під час оформлення.",
+      ru: "Комплект средств для профессиональной химчистки авто. Всё необходимое в одном наборе. Стоимость доставки уточняется при оформлении.",
     },
     items: [
       { productId: "21", name: "Global Enzym", amount: "1 кг" },
@@ -409,6 +414,7 @@ const CHEMISTRY_GROUP_EXCLUSIONS: Record<string, string[]> = {
 };
 
 const CHEMISTRY_GROUP_INCLUSIONS: Record<string, string[]> = {
+  prespray: ["74"],
   odorNeutralizers: ["16"],
 };
 
@@ -609,7 +615,7 @@ const copy = {
     openCatalog: "Перейти до каталогу",
     checked: "Перевірено майстром",
     simple: "Пояснюємо просто",
-    europe: "Доставка Україною та Європою",
+    europe: "Доставка Польщею та Європою",
     problemTitle: "Що потрібно видалити?",
     problemText: "Оберіть проблему — покажемо відповідні товари",
     all: "Усі товари",
@@ -672,8 +678,8 @@ const copy = {
     phone: "Номер телефону",
     telegram: "Telegram",
     delivery: "Спосіб доставки",
-    post: "Поштове відправлення",
-    courier: "Кур’єр",
+    post: "InPost — поштомат",
+    courier: "Кур’єр InPost / DHL",
     pickup: "Самовивіз",
     agreeDelivery: "Узгодити з менеджером",
     country: "Країна",
@@ -731,7 +737,7 @@ const copy = {
     openCatalog: "Перейти в каталог",
     checked: "Проверено мастером",
     simple: "Объясняем просто",
-    europe: "Доставка по Украине и Европе",
+    europe: "Доставка по Польше и Европе",
     problemTitle: "Что нужно удалить?",
     problemText: "Выберите проблему — покажем подходящие товары",
     all: "Все товары",
@@ -794,8 +800,8 @@ const copy = {
     phone: "Номер телефона",
     telegram: "Telegram",
     delivery: "Способ доставки",
-    post: "Почтовая отправка",
-    courier: "Курьер",
+    post: "InPost — почтомат",
+    courier: "Курьер InPost / DHL",
     pickup: "Самовывоз",
     agreeDelivery: "Согласовать с менеджером",
     country: "Страна",
@@ -905,7 +911,7 @@ function Icon({ name }: { name: string }) {
 
 export default function Home() {
   const [lang, setLang] = useState<Language>("ua");
-  const [currency, setCurrency] = useState<Currency>("PLN");
+  const currency: Currency = "PLN";
   const [eurRate, setEurRate] = useState(DEFAULT_EUR_RATE);
   const [category, setCategory] = useState("all");
   const [subCategory, setSubCategory] = useState("all");
@@ -930,13 +936,10 @@ export default function Home() {
     const savedLanguage = localStorage.getItem(
       "cleantapi-language",
     ) as Language | null;
-    const savedCurrency = localStorage.getItem(CURRENCY_KEY) as Currency | null;
     // Restore browser-only preferences after hydration.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (savedLanguage === "ua" || savedLanguage === "ru")
       setLang(savedLanguage);
-    if (savedCurrency === "PLN" || savedCurrency === "EUR")
-      setCurrency(savedCurrency);
     try {
       const cachedRate = JSON.parse(
         localStorage.getItem(EUR_RATE_KEY) || "null",
@@ -1005,9 +1008,6 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem("cleantapi-language", lang);
   }, [lang]);
-  useEffect(() => {
-    localStorage.setItem(CURRENCY_KEY, currency);
-  }, [currency]);
   useEffect(() => {
     if (!cartHydrated) return;
     if (cart.length)
@@ -1211,23 +1211,6 @@ export default function Home() {
             </button>
           </nav>
           <div className="nav-actions">
-            <div
-              className="currency-switch"
-              aria-label={lang === "ua" ? "Валюта цін" : "Валюта цен"}
-            >
-              <button
-                className={currency === "PLN" ? "active" : ""}
-                onClick={() => setCurrency("PLN")}
-              >
-                zł
-              </button>
-              <button
-                className={currency === "EUR" ? "active" : ""}
-                onClick={() => setCurrency("EUR")}
-              >
-                €
-              </button>
-            </div>
             <div className="language" aria-label="Language">
               <button
                 className={lang === "ua" ? "active" : ""}
@@ -1412,6 +1395,58 @@ export default function Home() {
               {lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"}{" "}
               <span>→</span>
             </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="shipping-section" aria-labelledby="shipping-title">
+        <div className="container">
+          <div className="shipping-heading">
+            <p className="eyebrow">
+              {lang === "ua" ? "ДОСТАВКА ЗАМОВЛЕНЬ" : "ДОСТАВКА ЗАКАЗОВ"}
+            </p>
+            <h2 id="shipping-title">
+              {lang === "ua"
+                ? "Відправляємо по Польщі та Європі"
+                : "Отправляем по Польше и Европе"}
+            </h2>
+          </div>
+          <div className="shipping-grid">
+            <article>
+              <span aria-hidden="true">PL</span>
+              <div>
+                <strong>{lang === "ua" ? "По Польщі" : "По Польше"}</strong>
+                <p>
+                  {lang === "ua"
+                    ? "Поштоматом InPost або кур’єром InPost."
+                    : "Почтоматом InPost или курьером InPost."}
+                </p>
+              </div>
+            </article>
+            <article>
+              <span aria-hidden="true">EU</span>
+              <div>
+                <strong>{lang === "ua" ? "По Європі" : "По Европе"}</strong>
+                <p>
+                  {lang === "ua"
+                    ? "Кур’єрська доставка DHL."
+                    : "Курьерская доставка DHL."}
+                </p>
+              </div>
+            </article>
+            <article className="shipping-cost">
+              <span aria-hidden="true">€</span>
+              <div>
+                <strong>
+                  {lang === "ua" ? "Вартість доставки" : "Стоимость доставки"}
+                </strong>
+                <p>
+                  {lang === "ua"
+                    ? "Уточнюємо індивідуально під час оформлення замовлення."
+                    : "Уточняем индивидуально при оформлении заказа."}
+                </p>
+              </div>
+            </article>
           </div>
         </div>
       </section>
@@ -1699,13 +1734,11 @@ export default function Home() {
                     {t.productsWord}
                   </p>
                 </div>
-                {currency === "EUR" && (
-                  <p className="currency-note">
-                    {lang === "ua"
-                      ? `Ціни в євро орієнтовні та розраховані за курсом NBP: 1 € = ${eurRate.toFixed(4)} zł.`
-                      : `Цены в евро ориентировочные и рассчитаны по курсу NBP: 1 € = ${eurRate.toFixed(4)} zł.`}
-                  </p>
-                )}
+                <p className="currency-note">
+                  {lang === "ua"
+                    ? `Усі ціни показані в злотих та орієнтовно в євро за курсом NBP: 1 € = ${eurRate.toFixed(4)} zł.`
+                    : `Все цены показаны в злотых и ориентировочно в евро по курсу NBP: 1 € = ${eurRate.toFixed(4)} zł.`}
+                </p>
                 {filtered.length ? (
                   <div className="product-grid">
                     {visibleProducts.map((p) => (
@@ -1784,9 +1817,18 @@ export default function Home() {
             <p>{t.contactsText}</p>
           </div>
           <SocialLinks />
-          <p className="copyright">© 2026</p>
+          <div className="legal-links">
+            <a href="/privacy.html">Polityka prywatności</a>
+            <a href="/cookies.html">Polityka cookies</a>
+            <button type="button" data-cookie-settings>
+              {lang === "ua" ? "Налаштування cookies" : "Настройки cookies"}
+            </button>
+          </div>
+          <p className="copyright">© 2026 Vitalii Norov</p>
         </div>
       </footer>
+
+      <CookieConsent lang={lang} />
 
       {cartOpen && (
         <div
@@ -1895,13 +1937,6 @@ export default function Home() {
                     <div>
                       <span>{t.total}</span>
                       <strong>{money(total, currency, eurRate)}</strong>
-                      {currency === "EUR" && (
-                        <small>
-                          {lang === "ua"
-                            ? "Орієнтовно · оплата узгоджується в PLN"
-                            : "Ориентировочно · оплата согласовывается в PLN"}
-                        </small>
-                      )}
                     </div>
                     <button
                       className="checkout-button"
@@ -2872,13 +2907,6 @@ function CheckoutForm({
       <div className="checkout-total">
         <span>{t.total}</span>
         <strong>{money(total, currency, eurRate)}</strong>
-        {currency === "EUR" && (
-          <small>
-            {lang === "ua"
-              ? "Орієнтовна сума за курсом NBP"
-              : "Ориентировочная сумма по курсу NBP"}
-          </small>
-        )}
       </div>
       <label>
         {t.name}

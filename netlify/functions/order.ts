@@ -55,7 +55,7 @@ export default async (request: Request, _context: Context) => {
     verified.push({ name: product.name, size, qty, price: variant.price });
   }
 
-  const labels: Record<string, string> = { post: "Поштове відправлення", courier: "Кур’єр", pickup: "Самовивіз", agree: "Узгодити з менеджером" };
+  const labels: Record<string, string> = { post: "InPost — поштомат", courier: "Кур’єр InPost / DHL", pickup: "Самовивіз", agree: "Узгодити з менеджером" };
   const total = verified.reduce((sum, item) => sum + item.qty * item.price, 0);
   const message = [
     "🔔 <b>НОВЕ ЗАМОВЛЕННЯ!</b>", "", `👤 Клієнт: ${escape(name)}`, `📞 Телефон: ${escape(phone)}`,

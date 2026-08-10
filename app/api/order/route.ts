@@ -108,8 +108,8 @@ export async function POST(request: Request) {
 
   const total = items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
   const deliveryLabels: Record<string, string> = {
-    post: "Поштове відправлення",
-    courier: "Кур’єр",
+    post: "InPost — поштомат",
+    courier: "Кур’єр InPost / DHL",
     pickup: "Самовивіз",
     agree: "Узгодити з менеджером",
   };
