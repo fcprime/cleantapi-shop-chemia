@@ -451,3 +451,41 @@ footer .footer-grid{grid-template-columns:minmax(220px,1fr) minmax(320px,1.25fr)
   .problem-grid button b,.problem-grid .problem-contact b{right:15px;bottom:15px}
   .problem-grid .problem-contact small{font-size:11px;line-height:1.25}
 }
+
+/* Keep product-detail images centered and full-size, including iPhone gallery views. */
+.modal-media>img{
+  position:absolute;
+  top:52px;
+  right:40px;
+  bottom:44px;
+  left:40px;
+  width:calc(100% - 80px);
+  height:calc(100% - 96px);
+  max-height:none;
+  object-fit:contain;
+  object-position:center center;
+}
+.modal-media:has(.modal-gallery)>img{
+  bottom:104px;
+  height:calc(100% - 156px);
+}
+@media(max-width:700px){
+  .modal-media{
+    height:clamp(340px,80vw,400px);
+    min-height:340px;
+    padding:0;
+  }
+  .modal-media:has(.modal-gallery){padding:0}
+  .modal-media>img{
+    top:52px;
+    right:26px;
+    bottom:30px;
+    left:26px;
+    width:calc(100% - 52px);
+    height:calc(100% - 82px);
+  }
+  .modal-media:has(.modal-gallery)>img{
+    bottom:80px;
+    height:calc(100% - 132px);
+  }
+}
