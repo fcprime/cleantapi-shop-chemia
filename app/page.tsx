@@ -757,6 +757,9 @@ const copy = {
     openYoutube: "Перейти на YouTube-канал",
     watchVideo: "Дивитися відео",
     closeVideo: "Закрити відео",
+    quickSearchTitle: "Знайти товар",
+    quickSearchHint: "Пошук за назвою або брендом",
+    searchButton: "Знайти",
     searchProducts: "Пошук товару за назвою",
     clearSearch: "Очистити пошук",
     shownProducts: "Показано",
@@ -898,6 +901,9 @@ const copy = {
     openYoutube: "Перейти на YouTube-канал",
     watchVideo: "Смотреть видео",
     closeVideo: "Закрыть видео",
+    quickSearchTitle: "Найти товар",
+    quickSearchHint: "Поиск по названию или бренду",
+    searchButton: "Найти",
     searchProducts: "Поиск товара по названию",
     clearSearch: "Очистить поиск",
     shownProducts: "Показано",
@@ -1250,6 +1256,24 @@ export default function Home() {
     document
       .getElementById("video-library")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const updateQuickSearch = (value: string) => {
+    setSearch(value);
+    setCategory("all");
+    setSubCategory("all");
+    setProblem("all");
+    setVisibleCount(12);
+    setFullCatalogOpen(true);
+  };
+  const submitQuickSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!search.trim()) return;
+    window.setTimeout(() => {
+      window.location.hash = "catalog-results";
+      document
+        .getElementById("catalog-results")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
   const selectProblem = (id: string) => {
     setProblem(id);
     setCategory("all");
@@ -1368,6 +1392,34 @@ export default function Home() {
             <p className="eyebrow">{t.eyebrow}</p>
             <h1>{t.hero}</h1>
             <p className="hero-text">{t.heroText}</p>
+            <div className="hero-search-block">
+              <strong>{t.quickSearchTitle}</strong>
+              <form className="hero-search" onSubmit={submitQuickSearch}>
+                <label>
+                  <span className="sr-only">{t.quickSearchHint}</span>
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => updateQuickSearch(event.target.value)}
+                    placeholder={t.quickSearchHint}
+                  />
+                </label>
+                {search && (
+                  <button
+                    type="button"
+                    className="hero-search-clear"
+                    aria-label={t.clearSearch}
+                    title={t.clearSearch}
+                    onClick={() => updateQuickSearch("")}
+                  >
+                    ×
+                  </button>
+                )}
+                <button type="submit" className="hero-search-submit">
+                  {t.searchButton} <span>→</span>
+                </button>
+              </form>
+            </div>
             <div className="hero-buttons">
               <button className="primary" onClick={jumpCatalog}>
                 {t.openCatalog} <span>→</span>
