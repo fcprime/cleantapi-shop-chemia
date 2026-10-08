@@ -511,3 +511,16 @@ footer .footer-grid{grid-template-columns:minmax(220px,1fr) minmax(320px,1.25fr)
     height:calc(100% - 132px);
   }
 }
+
+/* Keep the logo card softly rounded in the sticky header. */
+.site-header .brand,
+.site-header .brand img{
+  border-radius:16px;
+}
+.site-header .brand img{
+  overflow:hidden;
+}
+@media(max-width:700px){
+  .site-header .brand,
+  .site-header .brand img{border-radius:13px}
+}

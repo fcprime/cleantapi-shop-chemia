@@ -148,6 +148,14 @@ const videoItems: VideoItem[] = [
     title: { ua: "Пре-спреї World of Clean", ru: "Пре-спреи World of Clean" },
   },
   {
+    id: "anEBba0priY",
+    type: "equipment",
+    title: {
+      ua: "Як правильно користуватися миючим пилососом Santoemma SW15",
+      ru: "Как правильно пользоваться моющим пылесосом Santoemma SW15",
+    },
+  },
+  {
     id: "4jCd_RtuJjE",
     type: "equipment",
     title: {
