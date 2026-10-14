@@ -95,6 +95,14 @@ function money(valuePln: number, _currency: Currency, eurRate: number) {
 
 const videoItems: VideoItem[] = [
   {
+    id: "Nd5sfUJHkjE",
+    type: "chemistry",
+    title: {
+      ua: "Все про хімію для хімчистки меблів",
+      ru: "Всё о химии для химчистки мебели",
+    },
+  },
+  {
     id: "NCl8qnkkFnc",
     type: "chemistry",
     title: {
