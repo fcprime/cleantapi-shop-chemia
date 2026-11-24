@@ -638,3 +638,11 @@ footer .footer-grid{grid-template-columns:minmax(220px,1fr) minmax(320px,1.25fr)
   .product-modal{align-content:start}
   body.modal-open .toast{bottom:auto;top:14px}
 }
+/* Плями на телефоні: компактна сітка 2 колонки замість великих «пігулок» */
+@media(max-width:700px){
+  .problem-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;overflow:visible;padding-bottom:0}
+  .problem-grid button,.problem-grid .problem-contact{flex:none;width:auto;min-width:0;height:auto;min-height:48px;padding:10px 12px;border-radius:12px;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;white-space:normal;font-size:14px;line-height:1.2;transform:none}
+  .problem-grid button svg,.problem-grid .problem-contact svg{width:20px;height:20px;flex:none}
+  .problem-grid button b,.problem-grid .problem-contact b,.problem-grid .problem-contact small{display:none}
+  .problem-grid .problem-contact{grid-column:1/-1}
+}
