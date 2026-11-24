@@ -873,6 +873,9 @@ const copy = {
     bulkSaving: "вигідніше",
     boughtTogether: "З цим засобом зазвичай беруть",
     addShort: "+ Додати",
+    addOneMore: "Додати ще",
+    inCartShort: "У кошику:",
+    checkoutShort: "Оформити",
     cartTitle: "Ваш кошик",
     cartEmpty: "Кошик поки порожній",
     cartHint: "Кошик зберігається на цьому пристрої 30 днів.",
@@ -1035,6 +1038,9 @@ const copy = {
     bulkSaving: "выгоднее",
     boughtTogether: "С этим средством обычно берут",
     addShort: "+ Добавить",
+    addOneMore: "Добавить ещё",
+    inCartShort: "В корзине:",
+    checkoutShort: "Оформить",
     cartTitle: "Ваша корзина",
     cartEmpty: "Корзина пока пуста",
     cartHint: "Корзина сохраняется на этом устройстве 30 дней.",
@@ -1698,83 +1704,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="shop-guide">
-        <div className="container">
-          <div className="paths-grid">
-            <article className="path-card path-pro">
-              <p className="eyebrow">
-                {lang === "ua" ? "ДЛЯ МАЙСТРІВ" : "ДЛЯ МАСТЕРОВ"}
-              </p>
-              <h2>
-                {lang === "ua" ? "Знаю, що мені потрібно" : "Знаю, что мне нужно"}
-              </h2>
-              <p>
-                {lang === "ua"
-                  ? "Знайдіть засіб за назвою або брендом, оберіть фасування — велика тара вигідніша. Заявка приходить Віталію одразу."
-                  : "Найдите средство по названию или бренду, выберите фасовку — большая тара выгоднее. Заявка сразу приходит Виталию."}
-              </p>
-              <div className="path-actions">
-                <button className="primary" onClick={() => selectCategory("chemistry")}>
-                  {lang === "ua" ? "Уся хімія" : "Вся химия"} <span>→</span>
-                </button>
-                <button onClick={() => selectCategory("equipment")}>
-                  {lang === "ua" ? "Обладнання" : "Оборудование"} <span>→</span>
-                </button>
-                <button onClick={() => selectCategory("inventory")}>
-                  {lang === "ua" ? "Інвентар" : "Инвентарь"} <span>→</span>
-                </button>
-              </div>
-            </article>
-            <article className="path-card path-new">
-              <p className="eyebrow">
-                {lang === "ua" ? "ДЛЯ ПОЧАТКІВЦІВ" : "ДЛЯ НАЧИНАЮЩИХ"}
-              </p>
-              <h2>
-                {lang === "ua" ? "Не знаю, що обрати" : "Не знаю, что выбрать"}
-              </h2>
-              <p>
-                {lang === "ua"
-                  ? "Оберіть проблему — покажемо засоби. Або візьміть готовий стартовий набір, який Віталій зібрав для старту."
-                  : "Выберите проблему — покажем средства. Или возьмите готовый стартовый набор, который Виталий собрал для старта."}
-              </p>
-              <div className="path-actions">
-                <button
-                  className="primary"
-                  onClick={() =>
-                    document
-                      .getElementById("problems")
-                      ?.scrollIntoView({ behavior: "smooth" })
-                  }
-                >
-                  {lang === "ua" ? "Підібрати за проблемою" : "Подобрать по проблеме"} <span>→</span>
-                </button>
-                <button onClick={() => selectCategory("sets")}>
-                  {lang === "ua" ? "Стартові набори" : "Стартовые наборы"} <span>→</span>
-                </button>
-                <button onClick={() => selectCategory("videos")}>
-                  {lang === "ua" ? "Відеопояснення" : "Видеообъяснения"} <span>→</span>
-                </button>
-              </div>
-            </article>
-          </div>
-          <div className="guide-contact">
-            <p>
-              {lang === "ua"
-                ? "Не знайшли потрібний засіб або об’єм? На сайті представлена не вся продукція — напишіть нам у Telegram."
-                : "Не нашли нужное средство или объём? На сайте представлена не вся продукция — напишите нам в Telegram."}
-            </p>
-            <a
-              href="https://t.me/Vitaliiivanovich"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"}{" "}
-              <span>→</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
       <section className="shop-entry container" id="catalog">
         <div className="catalog-top">
           <div>
@@ -1815,7 +1744,7 @@ export default function Home() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">
-                {lang === "ua" ? "ПІДБІР ЗА ПРОБЛЕМОЮ" : "ПОДБОР ПО ПРОБЛЕМЕ"}
+                {lang === "ua" ? "НЕ ЗНАЄТЕ, ЩО ОБРАТИ?" : "НЕ ЗНАЕТЕ, ЧТО ВЫБРАТЬ?"}
               </p>
               <h2>
                 {lang === "ua"
@@ -1851,24 +1780,6 @@ export default function Home() {
               <small>{t.unsureContact}</small>
               <b>→</b>
             </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="safety-notice">
-        <div className="container">
-          <span aria-hidden="true">!</span>
-          <div>
-            <strong>
-              {lang === "ua"
-                ? "Перед використанням обов’язково зробіть тест"
-                : "Перед использованием обязательно сделайте тест"}
-            </strong>
-            <p>
-              {lang === "ua"
-                ? "Кожен засіб спочатку протестуйте на непомітній ділянці. Лише після цього працюйте на основній поверхні та дотримуйтеся інструкції виробника."
-                : "Каждое средство сначала протестируйте на незаметном участке. Только после этого работайте на основной поверхности и соблюдайте инструкцию производителя."}
-            </p>
           </div>
         </div>
       </section>
@@ -2100,6 +2011,44 @@ export default function Home() {
                 )}
               </>
             )}
+          </div>
+        </div>
+      </section>
+
+      <section className="safety-notice">
+        <div className="container">
+          <span aria-hidden="true">!</span>
+          <div>
+            <strong>
+              {lang === "ua"
+                ? "Перед використанням обов’язково зробіть тест"
+                : "Перед использованием обязательно сделайте тест"}
+            </strong>
+            <p>
+              {lang === "ua"
+                ? "Кожен засіб спочатку протестуйте на непомітній ділянці. Лише після цього працюйте на основній поверхні та дотримуйтеся інструкції виробника."
+                : "Каждое средство сначала протестируйте на незаметном участке. Только после этого работайте на основной поверхности и соблюдайте инструкцию производителя."}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="shop-guide shop-guide-bottom">
+        <div className="container">
+          <div className="guide-contact">
+            <p>
+              {lang === "ua"
+                ? "Не знайшли потрібний засіб або об’єм? На сайті представлена не вся продукція — напишіть нам у Telegram."
+                : "Не нашли нужное средство или объём? На сайте представлена не вся продукция — напишите нам в Telegram."}
+            </p>
+            <a
+              href="https://t.me/Vitaliiivanovich"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"}{" "}
+              <span>→</span>
+            </a>
           </div>
         </div>
       </section>
@@ -2349,6 +2298,12 @@ export default function Home() {
           onClose={() => setSelectedProduct(null)}
           onAdd={add}
           onOpen={setSelectedProduct}
+          cartCount={count}
+          cartTotal={money(total, currency, eurRate)}
+          onOpenCart={() => {
+            setSelectedProduct(null);
+            setCartOpen(true);
+          }}
         />
       )}
       {orderComplete && (
@@ -3137,6 +3092,9 @@ function ProductModal({
   onClose,
   onAdd,
   onOpen,
+  cartCount,
+  cartTotal,
+  onOpenCart,
 }: {
   product: Product;
   lang: Language;
@@ -3147,7 +3105,11 @@ function ProductModal({
   onClose: () => void;
   onAdd: (p: Product, size: string) => void;
   onOpen: (p: Product) => void;
+  cartCount: number;
+  cartTotal: string;
+  onOpenCart: () => void;
 }) {
+  const [added, setAdded] = useState(false);
   const related = relatedProducts(product, allProducts);
   const [size, setSize] = useState(product.sizes[0]?.label || "1 шт.");
   const [photo, setPhoto] = useState(0);
@@ -3232,13 +3194,26 @@ function ProductModal({
             currency={currency}
             eurRate={eurRate}
           />
-          <button
-            className="modal-add"
-            disabled={unavailable}
-            onClick={() => onAdd(product, size)}
-          >
-            {unavailable ? t.waiting : `+ ${t.add}`}
-          </button>
+          <div className="modal-buy">
+            <button
+              className="modal-add"
+              disabled={unavailable}
+              onClick={() => {
+                onAdd(product, size);
+                setAdded(true);
+              }}
+            >
+              {unavailable ? t.waiting : added ? `+ ${t.addOneMore}` : `+ ${t.add}`}
+            </button>
+            {added && cartCount > 0 && (
+              <button type="button" className="modal-go-cart" onClick={onOpenCart}>
+                <span>
+                  ✓ {t.inCartShort} {cartCount} · {cartTotal}
+                </span>
+                <strong>{t.checkoutShort} →</strong>
+              </button>
+            )}
+          </div>
           {related.length > 0 && (
             <div className="modal-together">
               <h3>{t.boughtTogether}</h3>
@@ -3264,7 +3239,10 @@ function ProductModal({
                     </span>
                     <button
                       type="button"
-                      onClick={() => onAdd(item, item.sizes[0]?.label || "1 шт.")}
+                      onClick={() => {
+                        onAdd(item, item.sizes[0]?.label || "1 шт.");
+                        setAdded(true);
+                      }}
                     >
                       {t.addShort}
                     </button>

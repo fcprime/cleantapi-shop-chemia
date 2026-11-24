@@ -564,3 +564,73 @@ footer .footer-grid{grid-template-columns:minmax(220px,1fr) minmax(320px,1.25fr)
 .path-actions button:hover{border-color:var(--green)}
 .path-actions button.primary:hover{background:var(--green2)}
 @media(max-width:760px){.paths-grid{grid-template-columns:1fr}.path-card{padding:22px 18px}.path-actions button{flex:1 1 100%;justify-content:space-between}}
+
+/* ===== Кнопка «перейти в кошик» у картці товару ===== */
+.modal-buy{display:grid;gap:8px}
+.modal-go-cart{width:100%;min-height:52px;border:0;border-radius:0;background:#0d1714;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;cursor:pointer;font-size:14px;text-align:left}
+.modal-go-cart span{color:#c9d6d0;font-weight:700}
+.modal-go-cart strong{color:#7ee0b0;white-space:nowrap}
+.shop-guide-bottom{padding:24px 0}
+
+/* ===== Мобільна версія: компактніше і без виходу за край екрана ===== */
+@media(max-width:700px){
+  html,body{overflow-x:clip}
+  .drawer-layer{width:auto;max-width:none;left:0;right:0}
+  .cart-drawer{width:100%;max-width:100%;min-width:0;overflow-x:hidden}
+  .cart-drawer *{min-width:0}
+  .checkout-form input,.checkout-form select,.checkout-form textarea{max-width:100%}
+  .drawer-head{padding:14px 16px;gap:12px;align-items:center}
+  .drawer-head>*:first-child{min-width:0}
+  .drawer-head h2{font-size:22px;line-height:1.15}
+  .drawer-head p{font-size:12px;margin-top:3px}
+  .drawer-head button{flex:none}
+  .checkout-form{gap:10px}
+  .checkout-form input,.checkout-form select{min-height:44px}
+  .checkout-total strong{font-size:20px}
+  .contact-methods div{grid-template-columns:repeat(2,1fr)}
+  .contact-methods button{min-height:40px}
+  .cart-item{gap:10px;padding:12px 0}
+  .cart-item img{width:56px;height:56px}
+
+  /* картка товару */
+  .modal-media{min-height:0;padding:18px 18px 14px}
+  .modal-media:has(.modal-gallery){padding-bottom:84px}
+  .modal-media img{max-height:200px}
+  .modal-copy{padding:16px 16px 0}
+  .modal-copy h2{font-size:25px;margin:4px 0 10px}
+  .modal-kicker{margin-bottom:4px}
+  .modal-description{font-size:14px;line-height:1.45}
+  .modal-sizes{margin-top:14px;padding-top:12px}
+  .modal-sizes button{padding:8px 10px;font-size:14px}
+  .modal-price{font-size:22px;margin-top:12px}
+  .modal-buy{position:sticky;bottom:0;z-index:3;margin:10px -16px 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#f7f6f1;box-shadow:0 -8px 20px rgba(0,0,0,.08)}
+  .modal-add,.modal-go-cart{min-height:48px}
+  .modal-together{margin:0 0 20px;padding-top:14px}
+  .modal-together li{grid-template-columns:44px 1fr auto;gap:8px;padding:6px}
+  .modal-together img{width:44px;height:44px}
+  .modal-together button{min-height:36px;padding:0 10px}
+
+  /* головна: швидше до товарів */
+  .hero{margin:10px auto 0;width:calc(100% - 20px);border-radius:20px}
+  .hero-copy{padding:22px 0 20px}
+  .hero h1{font-size:29px;line-height:1.08}
+  .hero-text{font-size:14px;line-height:1.45;margin:10px 0 14px}
+  .hero-search-block>strong,.hero-buttons,.hero-photo{display:none}
+  .trust{margin-top:14px}
+  .shop-entry{padding:22px 0 6px}
+  .catalog-top p{display:none}
+  .catalog-top h2{font-size:23px;margin:2px 0 12px}
+  .catalog-directory{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}
+  .catalog-directory button{min-height:66px;padding:12px 14px;border-radius:14px;display:flex;align-items:center}
+  .catalog-directory button>span,.catalog-directory button small,.catalog-directory button b{display:none}
+  .catalog-directory button strong{font-size:16px}
+  .problems-wrap{margin-top:14px}
+  .problems{padding:18px 0 16px}
+  .problems .section-heading p,.problems .section-heading>span{display:none}
+  .problems .section-heading h2{font-size:21px;margin:2px 0 10px}
+  .problem-grid button{min-width:auto;min-height:52px;flex-direction:row;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;white-space:nowrap;font-size:14px}
+  .problem-grid button b,.problem-grid a b,.problem-grid a small{display:none}
+  .problem-grid svg{width:22px;height:22px;flex:none}
+  .problem-grid .problem-contact{min-width:auto;min-height:52px;flex-direction:row;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;white-space:nowrap}
+  .catalog-section{padding-top:14px}
+}
