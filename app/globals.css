@@ -634,3 +634,7 @@ footer .footer-grid{grid-template-columns:minmax(220px,1fr) minmax(320px,1.25fr)
   .problem-grid .problem-contact{min-width:auto;min-height:52px;flex-direction:row;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;white-space:nowrap}
   .catalog-section{padding-top:14px}
 }
+@media(max-width:700px){
+  .product-modal{align-content:start}
+  body.modal-open .toast{bottom:auto;top:14px}
+}

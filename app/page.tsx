@@ -767,7 +767,7 @@ function sizeAmount(label: string): { amount: number; unit: "kg" | "l" } | null 
   const match = label
     .toLowerCase()
     .replace(",", ".")
-    .match(/(\d+(?:\.\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l)\b/);
+    .match(/(\d+(?:\.\d+)?)\s*(кг|kg|гр|г|g|мл|ml|л|l)(?![a-zа-яіїєґ])/);
   if (!match) return null;
   const value = Number(match[1]);
   if (!value) return null;
