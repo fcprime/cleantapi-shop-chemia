@@ -70,11 +70,19 @@ export default async (request: Request, _context: Context) => {
         .replace(/^t\.me\//i, "")
         .replace(/^@/, "")
         .split(/[/?#]/)[0];
+      const contactMethod = ["telegram", "whatsapp", "viber", "phone"].includes(clean(body.contactMethod, 20))
+        ? clean(body.contactMethod, 20)
+        : "telegram";
+      const country = clean(body.country, 80);
+      const invoice = body.invoice === true;
+      const invoiceDetails = clean(body.invoiceDetails, 200);
+      const comment = clean(body.comment, 500);
       const incoming = Array.isArray(body.items) ? body.items.slice(0, 50) as Item[] : [];
       if (
         name.length < 2 ||
         phone.replace(/\D/g, "").length < 6 ||
-        !/^[A-Za-z0-9_]{5,32}$/.test(telegramUsername) ||
+        (contactMethod === "telegram" && !/^[A-Za-z0-9_]{5,32}$/.test(telegramUsername)) ||
+        (invoice && invoiceDetails.length < 3) ||
         !incoming.length
       ) {
         return Response.json({ error: "missing_fields" }, { status: 400 });
@@ -109,15 +117,26 @@ export default async (request: Request, _context: Context) => {
       const itemLines = checked.map((item, index) =>
         `${index + 1}. ${escapeHtml(item.name)} — ${escapeHtml(item.size)} — ${item.qty} шт. × ${item.price} zł`
       );
+      const digits = phone.replace(/\D/g, "");
+      const contactLines: Record<string, string> = {
+        telegram: `💬 Зв’язок: Telegram <a href="https://t.me/${telegramUsername}">@${escapeHtml(telegramUsername)}</a>`,
+        whatsapp: `💬 Зв’язок: <a href="https://wa.me/${digits}">WhatsApp</a>`,
+        viber: `💬 Зв’язок: Viber (${escapeHtml(phone)})`,
+        phone: `💬 Зв’язок: дзвінок на телефон`,
+      };
       const message = [
         `🔔 <b>ЗАМОВЛЕННЯ #${orderNumber}</b>`, "",
         `👤 Клієнт: ${escapeHtml(name)}`,
         `📞 Телефон: ${escapeHtml(phone)}`,
-        `💬 Telegram: <a href="https://t.me/${telegramUsername}">@${escapeHtml(telegramUsername)}</a>`,
-        `🚚 Доставка: узгодити з клієнтом`, "",
+        contactLines[contactMethod],
+        `🌍 Країна: ${escapeHtml(country === "other" ? "інша (уточнити)" : country || "не вказано")}`,
+        `🚚 Доставка: узгодити з клієнтом`,
+        invoice ? `🧾 <b>ФАКТУРА: так</b> — ${escapeHtml(invoiceDetails)}` : `🧾 Фактура: не потрібна`,
+        ...(comment ? ["", `📝 Коментар: ${escapeHtml(comment)}`] : []),
+        "",
         "📦 <b>Товари:</b>", ...itemLines, "",
         `💰 <b>РАЗОМ: ${total} zł</b>`, "",
-        "Напишіть клієнту за вказаним Telegram або номером телефону.",
+        "Напишіть клієнту у вказаний месенджер або за номером телефону.",
       ].join("\n");
       await telegram("sendMessage", {
         chat_id: managerChatId(),

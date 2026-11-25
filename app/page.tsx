@@ -24,6 +24,10 @@ type Product = {
 type CartItem = { productId: string; size: string; qty: number };
 type OrderItem = CartItem & { name: string; unitPrice: number };
 type CheckoutDraft = {
+  contactMethod?: ContactMethod;
+  invoice?: boolean;
+  invoiceDetails?: string;
+  comment?: string;
   name?: string;
   phone?: string;
   phoneCode?: string;
@@ -72,12 +76,21 @@ type CuratedProduct = {
   chemistryGroups: string[];
 };
 
+type ContactMethod = "telegram" | "whatsapp" | "viber" | "phone";
+const CONTACT_METHODS: ContactMethod[] = ["telegram", "whatsapp", "viber", "phone"];
+const DELIVERY_COUNTRIES = [
+  "Polska", "Deutschland", "United Kingdom", "Ireland", "Česko", "Slovensko",
+  "Österreich", "Nederland", "België", "France", "Italia", "España",
+  "Lietuva", "Latvija", "Eesti", "Danmark", "Sverige", "Norge", "Suomi",
+  "Schweiz", "Portugal", "Україна",
+];
+
 const CART_KEY = "cleantapi-cart-v1";
 const CHECKOUT_DRAFT_KEY = "cleantapi-checkout-draft-v1";
 // Temporary simplified checkout for the current sales workflow. Set to false
 // to restore the verified Telegram + delivery flow kept below.
 const SIMPLE_CHECKOUT = true;
-const CART_TTL = 24 * 60 * 60 * 1000;
+const CART_TTL = 30 * 24 * 60 * 60 * 1000;
 const EUR_RATE_KEY = "cleantapi-eur-rate-v1";
 const DEFAULT_EUR_RATE = 4.25;
 
@@ -640,6 +653,157 @@ function mapBundle(row: Record<string, unknown>): Bundle {
 const productName = (product: Product, lang: Language) =>
   lang === "ru" ? product.nameRu : product.name;
 
+// ---------- Search ----------
+// Customers type in Ukrainian, Russian or Latin, often with typos or by the
+// problem they have ("сеча", "кава") instead of the product name. The search
+// below folds all scripts into one Latin form and expands common synonyms.
+const CYR_TO_LAT: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", ґ: "g", д: "d", е: "e", є: "e", ё: "e",
+  ж: "zh", з: "z", и: "i", і: "i", ї: "i", й: "i", к: "k", л: "l", м: "m",
+  н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "h",
+  ц: "c", ч: "ch", ш: "sh", щ: "sh", ъ: "", ы: "i", ь: "", э: "e", ю: "u",
+  я: "a",
+};
+
+function foldText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[’'`ʼ]/g, "")
+    .split("")
+    .map((ch) => CYR_TO_LAT[ch] ?? ch)
+    .join("")
+    // Make Latin spellings line up with transliterated Cyrillic.
+    .replace(/y/g, "i")
+    .replace(/x/g, "ks")
+    .replace(/w/g, "v")
+    .replace(/q/g, "k")
+    .replace(/ph/g, "f")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/(.)\1+/g, "$1")
+    .trim();
+}
+
+// Each group: any of these words finds products that mention any other.
+const SEARCH_SYNONYMS: string[][] = [
+  ["ензим", "энзим", "фермент", "enzym", "enzyme"],
+  ["сеч", "моч", "urine", "уринн", "запах тварин", "кот", "кіт", "собак", "pet"],
+  ["кров", "blood", "білков", "белков", "protein"],
+  ["жир", "grease", "олія", "масл", "oil"],
+  ["кав", "кофе", "coffee", "вин", "wine", "чай", "танін", "танин"],
+  ["кислот", "acid", "ополіск", "ополаск", "rinse"],
+  ["пре-спрей", "преспрей", "prespray", "pre spray", "попередн", "предварит"],
+  ["пляма", "плям", "пятн", "stain", "плямовивід", "пятновывод"],
+  ["шкір", "кож", "leather"],
+  ["запах", "odor", "odour", "smell", "аромат", "парфум", "духи"],
+  ["щітк", "щетк", "brush"],
+  ["мікрофібр", "микрофибр", "рушник", "полотен", "towel"],
+  ["екстракт", "экстракт", "extraction", "миючий пилосос", "моющий пылесос"],
+  ["авто", "машин", "салон", "car"],
+  ["килим", "ковер", "ковр", "carpet"],
+  ["диван", "меблі", "мебел", "оббивк", "обивк", "sofa", "upholstery"],
+  ["global", "глобал"],
+  ["chemspec", "кемспек", "хемспек"],
+  ["world of clean", "ворлд"],
+];
+const FOLDED_SYNONYMS = SEARCH_SYNONYMS.map((group) => group.map(foldText));
+
+type SearchToken = { word: string; variants: string[] };
+
+function searchTokens(query: string): SearchToken[] {
+  return foldText(query)
+    .split(" ")
+    .filter((word) => word.length > 1)
+    .map((raw) => {
+      // Cut a grammatical ending so "сеча" also finds "сечі", "плями" finds "пляма".
+      const word = raw.length > 4 ? raw.slice(0, -1) : raw;
+      const variants = new Set([word]);
+      if (word.length >= 3) {
+        for (const group of FOLDED_SYNONYMS) {
+          if (group.some((syn) => word.startsWith(syn) || syn.startsWith(word))) {
+            group.forEach((syn) => variants.add(syn));
+          }
+        }
+      }
+      return { word, variants: [...variants] };
+    });
+}
+
+type SearchIndexEntry = { title: string; main: string; full: string };
+
+function productSearchIndex(product: Product): SearchIndexEntry {
+  return {
+    title: foldText(`${product.name} ${product.nameRu} ${product.brand}`),
+    main: foldText(
+      [
+        product.name,
+        product.nameRu,
+        product.brand,
+        product.description.ua,
+        product.description.ru,
+      ].join(" "),
+    ),
+    full: foldText(`${product.fullDescription.ua} ${product.fullDescription.ru}`),
+  };
+}
+
+// Synonyms are checked against the name and short description; the long
+// description only counts for the exact word, so results stay relevant.
+function matchesSearch(entry: SearchIndexEntry, tokens: SearchToken[]) {
+  return tokens.every(
+    (token) =>
+      token.variants.some((v) => entry.main.includes(v)) ||
+      entry.full.includes(token.word),
+  );
+}
+
+function titleScore(entry: SearchIndexEntry, tokens: SearchToken[]) {
+  return tokens.filter((token) =>
+    token.variants.some((v) => entry.title.includes(v)),
+  ).length;
+}
+
+// ---------- Price per kg / litre ----------
+function sizeAmount(label: string): { amount: number; unit: "kg" | "l" } | null {
+  const match = label
+    .toLowerCase()
+    .replace(",", ".")
+    .match(/(\d+(?:\.\d+)?)\s*(кг|kg|гр|г|g|мл|ml|л|l)(?![a-zа-яіїєґ])/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  if (!value) return null;
+  switch (match[2]) {
+    case "кг":
+    case "kg":
+      return { amount: value, unit: "kg" };
+    case "г":
+    case "гр":
+    case "g":
+      return { amount: value / 1000, unit: "kg" };
+    case "мл":
+    case "ml":
+      return { amount: value / 1000, unit: "l" };
+    default:
+      return { amount: value, unit: "l" };
+  }
+}
+
+function unitPriceInfo(product: Product, size: string) {
+  const current = product.sizes.find((s) => s.label === size);
+  const amount = current ? sizeAmount(current.label) : null;
+  if (!current || !amount) return null;
+  const perUnit = current.price / amount.amount;
+  const comparable = product.sizes
+    .map((s) => ({ s, a: sizeAmount(s.label) }))
+    .filter((x) => x.a && x.a.unit === amount.unit)
+    .map((x) => x.s.price / (x.a as { amount: number }).amount);
+  const maxPerUnit = Math.max(...comparable);
+  const saving =
+    comparable.length > 1 && maxPerUnit > perUnit
+      ? Math.round((1 - perUnit / maxPerUnit) * 100)
+      : 0;
+  return { perUnit, unit: amount.unit, saving };
+}
+
 const copy = {
   ua: {
     catalog: "Каталог",
@@ -650,12 +814,12 @@ const copy = {
     eyebrow: "ПРОФЕСІЙНА ХІМІЯ ДЛЯ ХІМЧИСТКИ МЕБЛІВ",
     hero: "Засоби, які майстер перевірив у роботі",
     heroText:
-      "Оберіть проблему — ми покажемо відповідні засоби. Простими словами, без складних професійних термінів.",
+      "Хімія, інвентар і обладнання, з якими Віталій працює щодня. Знаєте, що потрібно — знайдіть за назвою. Тільки починаєте — оберіть проблему, і ми підкажемо засіб.",
     choose: "Підібрати засіб",
     openCatalog: "Перейти до каталогу",
     checked: "Перевірено майстром",
-    simple: "Пояснюємо просто",
-    europe: "Доставка Польщею та Європою",
+    simple: "30 000+ підписників у TikTok",
+    europe: "Доставка по ЄС, UK та Ірландії",
     problemTitle: "Що потрібно видалити?",
     problemText: "Оберіть проблему — покажемо відповідні товари",
     all: "Усі товари",
@@ -704,9 +868,17 @@ const copy = {
     details: "Детальніше",
     loading: "Завантажуємо каталог…",
     fullDescription: "Про товар",
+    perKg: "кг",
+    perL: "л",
+    bulkSaving: "вигідніше",
+    boughtTogether: "З цим засобом зазвичай беруть",
+    addShort: "+ Додати",
+    addOneMore: "Додати ще",
+    inCartShort: "У кошику:",
+    checkoutShort: "Оформити",
     cartTitle: "Ваш кошик",
     cartEmpty: "Кошик поки порожній",
-    cartHint: "Товари зберігатимуться на цьому пристрої 24 години.",
+    cartHint: "Кошик зберігається на цьому пристрої 30 днів.",
     clear: "Очистити кошик",
     total: "Разом",
     continue: "Продовжити вибір",
@@ -721,6 +893,19 @@ const copy = {
     telegramUsernamePlaceholder: "@username",
     telegramUsernameHint: "Де знайти: Telegram → Налаштування → Ім’я користувача.",
     telegramUsernameInvalid: "Вкажіть коректне ім’я користувача Telegram, наприклад @username.",
+    contactMethod: "Де вам зручніше відповісти?",
+    contactPhoneCall: "Дзвінок",
+    contactHintOther: "Віталій напише вам на цей номер.",
+    deliveryCountry: "Країна доставки",
+    otherCountry: "Інша країна",
+    deliveryNote: "Спосіб і вартість доставки Віталій узгодить з вами після заявки.",
+    invoice: "Потрібна фактура (faktura VAT / invoice)",
+    invoiceDetails: "Назва фірми та NIP / VAT",
+    invoiceDetailsPlaceholder: "Напр.: CleanPro Sp. z o.o., NIP 1234567890",
+    invoiceRequired: "Вкажіть назву фірми та NIP / VAT для фактури.",
+    comment: "Коментар (необов’язково)",
+    commentPlaceholder: "Напр.: потрібно до п’ятниці, або питання щодо товару",
+    orderSuccessTextOther: "Ми отримали вашу заявку. Віталій зв’яжеться з вами найближчим часом за вказаним контактом.",
     telegramVerifyTitle: "Підтвердження Telegram",
     telegramVerifyText:
       "Telegram відкриється внизу екрана. Розгорніть його та виконайте 3 короткі кроки:",
@@ -774,9 +959,9 @@ const copy = {
     watchVideo: "Дивитися відео",
     closeVideo: "Закрити відео",
     quickSearchTitle: "Знайти товар",
-    quickSearchHint: "Пошук за назвою або брендом",
+    quickSearchHint: "Назва, бренд або пляма: ензим, сеча, кава…",
     searchButton: "Знайти",
-    searchProducts: "Пошук товару за назвою",
+    searchProducts: "Пошук: назва, бренд або тип плями",
     clearSearch: "Очистити пошук",
     shownProducts: "Показано",
     ofProducts: "із",
@@ -794,12 +979,12 @@ const copy = {
     eyebrow: "ПРОФЕССИОНАЛЬНАЯ ХИМИЯ ДЛЯ ХИМЧИСТКИ МЕБЕЛИ",
     hero: "Средства, которые мастер проверил в работе",
     heroText:
-      "Выберите проблему — мы покажем подходящие средства. Простыми словами, без сложных профессиональных терминов.",
+      "Химия, инвентарь и оборудование, с которыми Виталий работает каждый день. Знаете, что нужно — найдите по названию. Только начинаете — выберите проблему, и мы подскажем средство.",
     choose: "Подобрать средство",
     openCatalog: "Перейти в каталог",
     checked: "Проверено мастером",
-    simple: "Объясняем просто",
-    europe: "Доставка по Польше и Европе",
+    simple: "30 000+ подписчиков в TikTok",
+    europe: "Доставка по ЕС, UK и Ирландии",
     problemTitle: "Что нужно удалить?",
     problemText: "Выберите проблему — покажем подходящие товары",
     all: "Все товары",
@@ -848,9 +1033,17 @@ const copy = {
     details: "Подробнее",
     loading: "Загружаем каталог…",
     fullDescription: "О товаре",
+    perKg: "кг",
+    perL: "л",
+    bulkSaving: "выгоднее",
+    boughtTogether: "С этим средством обычно берут",
+    addShort: "+ Добавить",
+    addOneMore: "Добавить ещё",
+    inCartShort: "В корзине:",
+    checkoutShort: "Оформить",
     cartTitle: "Ваша корзина",
     cartEmpty: "Корзина пока пуста",
-    cartHint: "Товары сохранятся на этом устройстве на 24 часа.",
+    cartHint: "Корзина сохраняется на этом устройстве 30 дней.",
     clear: "Очистить корзину",
     total: "Итого",
     continue: "Продолжить выбор",
@@ -865,6 +1058,19 @@ const copy = {
     telegramUsernamePlaceholder: "@username",
     telegramUsernameHint: "Где найти: Telegram → Настройки → Имя пользователя.",
     telegramUsernameInvalid: "Укажите корректное имя пользователя Telegram, например @username.",
+    contactMethod: "Где вам удобнее ответить?",
+    contactPhoneCall: "Звонок",
+    contactHintOther: "Виталий напишет вам на этот номер.",
+    deliveryCountry: "Страна доставки",
+    otherCountry: "Другая страна",
+    deliveryNote: "Способ и стоимость доставки Виталий согласует с вами после заявки.",
+    invoice: "Нужна фактура (faktura VAT / invoice)",
+    invoiceDetails: "Название фирмы и NIP / VAT",
+    invoiceDetailsPlaceholder: "Напр.: CleanPro Sp. z o.o., NIP 1234567890",
+    invoiceRequired: "Укажите название фирмы и NIP / VAT для фактуры.",
+    comment: "Комментарий (необязательно)",
+    commentPlaceholder: "Напр.: нужно до пятницы, или вопрос по товару",
+    orderSuccessTextOther: "Мы получили вашу заявку. Виталий свяжется с вами в ближайшее время по указанному контакту.",
     telegramVerifyTitle: "Подтверждение Telegram",
     telegramVerifyText:
       "Telegram откроется внизу экрана. Разверните его и выполните 3 коротких шага:",
@@ -918,9 +1124,9 @@ const copy = {
     watchVideo: "Смотреть видео",
     closeVideo: "Закрыть видео",
     quickSearchTitle: "Найти товар",
-    quickSearchHint: "Поиск по названию или бренду",
+    quickSearchHint: "Название, бренд или пятно: энзим, моча, кофе…",
     searchButton: "Найти",
-    searchProducts: "Поиск товара по названию",
+    searchProducts: "Поиск: название, бренд или тип пятна",
     clearSearch: "Очистить поиск",
     shownProducts: "Показано",
     ofProducts: "из",
@@ -1006,7 +1212,7 @@ export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [telegramResume, setTelegramResume] = useState<TelegramResume | null>(null);
-  const [orderComplete, setOrderComplete] = useState(false);
+  const [orderComplete, setOrderComplete] = useState<false | ContactMethod>(false);
   const [toast, setToast] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [bundles, setBundles] = useState<Bundle[]>([]);
@@ -1128,7 +1334,12 @@ export default function Home() {
     else localStorage.removeItem(CART_KEY);
   }, [cart, cartHydrated]);
 
+  const searchIndex = useMemo(
+    () => new Map(products.map((p) => [p.id, productSearchIndex(p)])),
+    [products],
+  );
   const filtered = useMemo(() => {
+    const tokens = searchTokens(search);
     const matches = products.filter((p) => {
         const sectionMatch =
           category === "all" ||
@@ -1147,13 +1358,9 @@ export default function Home() {
           (brandIds
             ? brandIds.includes(p.id)
             : p.chemistryGroups.includes(subCategory));
+        const entry = searchIndex.get(p.id);
         const searchMatch =
-          !search.trim() ||
-          `${productName(p, lang)} ${p.brand}`
-            .toLocaleLowerCase(lang === "ua" ? "uk" : "ru")
-            .includes(
-              search.trim().toLocaleLowerCase(lang === "ua" ? "uk" : "ru"),
-            );
+          !tokens.length || (entry ? matchesSearch(entry, tokens) : false);
         return (
           sectionMatch &&
           subMatch &&
@@ -1167,6 +1374,15 @@ export default function Home() {
       const availabilityDifference =
         Number(a.status !== "available") - Number(b.status !== "available");
       if (availabilityDifference) return availabilityDifference;
+
+      if (tokens.length) {
+        // Products whose name or brand matches go before description-only matches.
+        const ea = searchIndex.get(a.id);
+        const eb = searchIndex.get(b.id);
+        const relevance =
+          (eb ? titleScore(eb, tokens) : 0) - (ea ? titleScore(ea, tokens) : 0);
+        if (relevance) return relevance;
+      }
 
       const isMainProductList =
         problem === "all" &&
@@ -1193,7 +1409,7 @@ export default function Home() {
       }
       return 0;
     });
-  }, [products, category, subCategory, problem, search, lang]);
+  }, [products, searchIndex, category, subCategory, problem, search]);
   const visibleProducts = filtered.slice(0, visibleCount);
   const bundleProducts = useMemo<Product[]>(
     () =>
@@ -1488,125 +1704,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="shop-guide">
-        <div className="container">
-          <div className="guide-heading">
-            <p className="eyebrow">
-              {lang === "ua"
-                ? "ЯК КОРИСТУВАТИСЯ САЙТОМ"
-                : "КАК ПОЛЬЗОВАТЬСЯ САЙТОМ"}
-            </p>
-            <h2>
-              {lang === "ua"
-                ? "Знайдіть потрібний засіб і оформіть замовлення"
-                : "Найдите нужное средство и оформите заказ"}
-            </h2>
-          </div>
-          <div className="guide-steps">
-            <article>
-              <span>01</span>
-              <strong>
-                {lang === "ua" ? "Оберіть напрям" : "Выберите направление"}
-              </strong>
-              <p>
-                {lang === "ua"
-                  ? "Шукайте за типом плями, категорією хімії або брендом."
-                  : "Ищите по типу пятна, категории химии или бренду."}
-              </p>
-            </article>
-            <article>
-              <span>02</span>
-              <strong>
-                {lang === "ua" ? "Відкрийте товар" : "Откройте товар"}
-              </strong>
-              <p>
-                {lang === "ua"
-                  ? "Прочитайте опис, перевірте наявність і виберіть потрібний об’єм."
-                  : "Прочитайте описание, проверьте наличие и выберите нужный объём."}
-              </p>
-            </article>
-            <article>
-              <span>03</span>
-              <strong>
-                {lang === "ua" ? "Оформіть замовлення" : "Оформите заказ"}
-              </strong>
-              <p>
-                {lang === "ua"
-                  ? "Додайте товари в кошик і залиште контактні дані для узгодження доставки."
-                  : "Добавьте товары в корзину и оставьте контакты для согласования доставки."}
-              </p>
-            </article>
-          </div>
-          <div className="guide-contact">
-            <p>
-              {lang === "ua"
-                ? "Не знайшли потрібний засіб або об’єм? На сайті представлена не вся продукція — напишіть нам у Telegram."
-                : "Не нашли нужное средство или объём? На сайте представлена не вся продукция — напишите нам в Telegram."}
-            </p>
-            <a
-              href="https://t.me/Vitaliiivanovich"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"}{" "}
-              <span>→</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="shipping-section" aria-labelledby="shipping-title">
-        <div className="container">
-          <div className="shipping-heading">
-            <p className="eyebrow">
-              {lang === "ua" ? "ДОСТАВКА ЗАМОВЛЕНЬ" : "ДОСТАВКА ЗАКАЗОВ"}
-            </p>
-            <h2 id="shipping-title">
-              {lang === "ua"
-                ? "Відправляємо по Польщі та Європі"
-                : "Отправляем по Польше и Европе"}
-            </h2>
-          </div>
-          <div className="shipping-grid">
-            <article>
-              <span aria-hidden="true">PL</span>
-              <div>
-                <strong>{lang === "ua" ? "По Польщі" : "По Польше"}</strong>
-                <p>
-                  {lang === "ua"
-                    ? "Поштоматом InPost або кур’єром InPost."
-                    : "Почтоматом InPost или курьером InPost."}
-                </p>
-              </div>
-            </article>
-            <article>
-              <span aria-hidden="true">EU</span>
-              <div>
-                <strong>{lang === "ua" ? "По Європі" : "По Европе"}</strong>
-                <p>
-                  {lang === "ua"
-                    ? "Кур’єрська доставка DHL."
-                    : "Курьерская доставка DHL."}
-                </p>
-              </div>
-            </article>
-            <article className="shipping-cost">
-              <span aria-hidden="true">€</span>
-              <div>
-                <strong>
-                  {lang === "ua" ? "Вартість доставки" : "Стоимость доставки"}
-                </strong>
-                <p>
-                  {lang === "ua"
-                    ? "Уточнюємо індивідуально під час оформлення замовлення."
-                    : "Уточняем индивидуально при оформлении заказа."}
-                </p>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-
       <section className="shop-entry container" id="catalog">
         <div className="catalog-top">
           <div>
@@ -1647,7 +1744,7 @@ export default function Home() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">
-                {lang === "ua" ? "ПІДБІР ЗА ПРОБЛЕМОЮ" : "ПОДБОР ПО ПРОБЛЕМЕ"}
+                {lang === "ua" ? "НЕ ЗНАЄТЕ, ЩО ОБРАТИ?" : "НЕ ЗНАЕТЕ, ЧТО ВЫБРАТЬ?"}
               </p>
               <h2>
                 {lang === "ua"
@@ -1683,24 +1780,6 @@ export default function Home() {
               <small>{t.unsureContact}</small>
               <b>→</b>
             </a>
-          </div>
-        </div>
-      </section>
-
-      <section className="safety-notice">
-        <div className="container">
-          <span aria-hidden="true">!</span>
-          <div>
-            <strong>
-              {lang === "ua"
-                ? "Перед використанням обов’язково зробіть тест"
-                : "Перед использованием обязательно сделайте тест"}
-            </strong>
-            <p>
-              {lang === "ua"
-                ? "Кожен засіб спочатку протестуйте на непомітній ділянці. Лише після цього працюйте на основній поверхні та дотримуйтеся інструкції виробника."
-                : "Каждое средство сначала протестируйте на незаметном участке. Только после этого работайте на основной поверхности и соблюдайте инструкцию производителя."}
-            </p>
           </div>
         </div>
       </section>
@@ -1936,6 +2015,96 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="safety-notice">
+        <div className="container">
+          <span aria-hidden="true">!</span>
+          <div>
+            <strong>
+              {lang === "ua"
+                ? "Перед використанням обов’язково зробіть тест"
+                : "Перед использованием обязательно сделайте тест"}
+            </strong>
+            <p>
+              {lang === "ua"
+                ? "Кожен засіб спочатку протестуйте на непомітній ділянці. Лише після цього працюйте на основній поверхні та дотримуйтеся інструкції виробника."
+                : "Каждое средство сначала протестируйте на незаметном участке. Только после этого работайте на основной поверхности и соблюдайте инструкцию производителя."}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="shop-guide shop-guide-bottom">
+        <div className="container">
+          <div className="guide-contact">
+            <p>
+              {lang === "ua"
+                ? "Не знайшли потрібний засіб або об’єм? На сайті представлена не вся продукція — напишіть нам у Telegram."
+                : "Не нашли нужное средство или объём? На сайте представлена не вся продукция — напишите нам в Telegram."}
+            </p>
+            <a
+              href="https://t.me/Vitaliiivanovich"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {lang === "ua" ? "Написати в Telegram" : "Написать в Telegram"}{" "}
+              <span>→</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="shipping-section" aria-labelledby="shipping-title">
+        <div className="container">
+          <div className="shipping-heading">
+            <p className="eyebrow">
+              {lang === "ua" ? "ДОСТАВКА ЗАМОВЛЕНЬ" : "ДОСТАВКА ЗАКАЗОВ"}
+            </p>
+            <h2 id="shipping-title">
+              {lang === "ua"
+                ? "Відправляємо по Польщі, Європі, UK та Ірландії"
+                : "Отправляем по Польше, Европе, UK и Ирландии"}
+            </h2>
+          </div>
+          <div className="shipping-grid">
+            <article>
+              <span aria-hidden="true">PL</span>
+              <div>
+                <strong>{lang === "ua" ? "По Польщі" : "По Польше"}</strong>
+                <p>
+                  {lang === "ua"
+                    ? "Поштоматом InPost або кур’єром InPost."
+                    : "Почтоматом InPost или курьером InPost."}
+                </p>
+              </div>
+            </article>
+            <article>
+              <span aria-hidden="true">EU</span>
+              <div>
+                <strong>{lang === "ua" ? "По Європі" : "По Европе"}</strong>
+                <p>
+                  {lang === "ua"
+                    ? "Кур’єрська доставка DHL, зокрема у Велику Британію та Ірландію."
+                    : "Курьерская доставка DHL, в том числе в Великобританию и Ирландию."}
+                </p>
+              </div>
+            </article>
+            <article className="shipping-cost">
+              <span aria-hidden="true">€</span>
+              <div>
+                <strong>
+                  {lang === "ua" ? "Вартість доставки" : "Стоимость доставки"}
+                </strong>
+                <p>
+                  {lang === "ua"
+                    ? "Залежить від країни та ваги посилки — Віталій назве її одразу після заявки. Фактура VAT — за запитом."
+                    : "Зависит от страны и веса посылки — Виталий назовёт её сразу после заявки. Фактура VAT — по запросу."}
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="knowledge-band">
         <div className="container knowledge-grid">
           <div>
@@ -2037,11 +2206,11 @@ export default function Home() {
                 eurRate={eurRate}
                 initialResume={telegramResume}
                 onBack={() => setCheckoutOpen(false)}
-                onSuccess={() => {
+                onSuccess={(method) => {
                   setCart([]);
                   setCheckoutOpen(false);
                   setCartOpen(false);
-                  setOrderComplete(true);
+                  setOrderComplete(method);
                 }}
               />
             ) : (
@@ -2119,13 +2288,22 @@ export default function Home() {
       )}
       {selectedProduct && (
         <ProductModal
+          key={selectedProduct.id}
           product={selectedProduct}
           lang={lang}
           t={t}
           currency={currency}
           eurRate={eurRate}
+          allProducts={products}
           onClose={() => setSelectedProduct(null)}
           onAdd={add}
+          onOpen={setSelectedProduct}
+          cartCount={count}
+          cartTotal={money(total, currency, eurRate)}
+          onOpenCart={() => {
+            setSelectedProduct(null);
+            setCartOpen(true);
+          }}
         />
       )}
       {orderComplete && (
@@ -2144,14 +2322,20 @@ export default function Home() {
             <span className="success-mark">✓</span>
             <p className="eyebrow">{t.orderSuccess}</p>
             <h2>{t.orderSuccess}</h2>
-            <p>{t.orderSuccessText}</p>
-            <a
-              href="https://t.me/Vitaliiivanovich"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t.contactVitalii} <span>→</span>
-            </a>
+            <p>
+              {orderComplete === "telegram"
+                ? t.orderSuccessText
+                : t.orderSuccessTextOther}
+            </p>
+            {orderComplete === "telegram" && (
+              <a
+                href="https://t.me/Vitaliiivanovich"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t.contactVitalii} <span>→</span>
+              </a>
+            )}
             <button type="button" onClick={() => setOrderComplete(false)}>
               {t.closeSuccess}
             </button>
@@ -2700,6 +2884,71 @@ function VideoLibrary({
   );
 }
 
+function UnitPrice({
+  product,
+  size,
+  t,
+  currency,
+  eurRate,
+}: {
+  product: Product;
+  size: string;
+  t: typeof copy.ua;
+  currency: Currency;
+  eurRate: number;
+}) {
+  const info = unitPriceInfo(product, size);
+  if (!info || product.sizes.length < 2) return null;
+  const perUnit = Math.round(info.perUnit * 100) / 100;
+  return (
+    <span className="unit-price">
+      {money(perUnit, currency, eurRate)} / {info.unit === "kg" ? t.perKg : t.perL}
+      {info.saving >= 5 && (
+        <span className="saving-badge">
+          −{info.saving}% {t.bulkSaving}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Professional cleaning works as a system: pre-spray -> detergent -> acid rinse.
+const COMPLEMENTARY_GROUPS: Record<string, string[]> = {
+  prespray: ["detergents", "acidRinses"],
+  detergents: ["prespray", "acidRinses"],
+  acidRinses: ["prespray", "detergents"],
+  stainRemovers: ["prespray", "acidRinses"],
+  odorNeutralizers: ["prespray", "detergents"],
+};
+
+function relatedProducts(product: Product, all: Product[]) {
+  if (product.category !== "chemistry") return [];
+  const wanted = [
+    ...new Set(
+      product.chemistryGroups.flatMap((g) => COMPLEMENTARY_GROUPS[g] || []),
+    ),
+  ].filter((g) => !product.chemistryGroups.includes(g));
+  const picked: Product[] = [];
+  for (const group of wanted) {
+    const candidates = all.filter(
+      (p) =>
+        p.id !== product.id &&
+        p.status === "available" &&
+        p.category === "chemistry" &&
+        p.chemistryGroups.includes(group) &&
+        !picked.includes(p),
+    );
+    // Prefer the same brand, then the shop's featured order.
+    candidates.sort(
+      (a, b) =>
+        Number(b.brand === product.brand) - Number(a.brand === product.brand),
+    );
+    if (candidates[0]) picked.push(candidates[0]);
+    if (picked.length >= 2) break;
+  }
+  return picked;
+}
+
 function ProductCard({
   product,
   lang,
@@ -2767,9 +3016,15 @@ function ProductCard({
         </div>
         <div className="price-line">
           <strong>
-            {product.sizes.length > 1 ? t.from : ""}{" "}
             {money(activePrice, currency, eurRate)}
           </strong>
+          <UnitPrice
+            product={product}
+            size={size}
+            t={t}
+            currency={currency}
+            eurRate={eurRate}
+          />
         </div>
         <div className="product-actions">
           <button
@@ -2833,17 +3088,29 @@ function ProductModal({
   t,
   currency,
   eurRate,
+  allProducts,
   onClose,
   onAdd,
+  onOpen,
+  cartCount,
+  cartTotal,
+  onOpenCart,
 }: {
   product: Product;
   lang: Language;
   t: typeof copy.ua;
   currency: Currency;
   eurRate: number;
+  allProducts: Product[];
   onClose: () => void;
   onAdd: (p: Product, size: string) => void;
+  onOpen: (p: Product) => void;
+  cartCount: number;
+  cartTotal: string;
+  onOpenCart: () => void;
 }) {
+  const [added, setAdded] = useState(false);
+  const related = relatedProducts(product, allProducts);
   const [size, setSize] = useState(product.sizes[0]?.label || "1 шт.");
   const [photo, setPhoto] = useState(0);
   const price =
@@ -2920,13 +3187,70 @@ function ProductModal({
           <strong className="modal-price">
             {money(price, currency, eurRate)}
           </strong>
-          <button
-            className="modal-add"
-            disabled={unavailable}
-            onClick={() => onAdd(product, size)}
-          >
-            {unavailable ? t.waiting : `+ ${t.add}`}
-          </button>
+          <UnitPrice
+            product={product}
+            size={size}
+            t={t}
+            currency={currency}
+            eurRate={eurRate}
+          />
+          <div className="modal-buy">
+            <button
+              className="modal-add"
+              disabled={unavailable}
+              onClick={() => {
+                onAdd(product, size);
+                setAdded(true);
+              }}
+            >
+              {unavailable ? t.waiting : added ? `+ ${t.addOneMore}` : `+ ${t.add}`}
+            </button>
+            {added && cartCount > 0 && (
+              <button type="button" className="modal-go-cart" onClick={onOpenCart}>
+                <span>
+                  ✓ {t.inCartShort} {cartCount} · {cartTotal}
+                </span>
+                <strong>{t.checkoutShort} →</strong>
+              </button>
+            )}
+          </div>
+          {related.length > 0 && (
+            <div className="modal-together">
+              <h3>{t.boughtTogether}</h3>
+              <ul>
+                {related.map((item) => (
+                  <li key={item.id}>
+                    <img src={item.image} alt="" />
+                    <span>
+                      <strong>
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onOpen(item);
+                          }}
+                        >
+                          {productName(item, lang)}
+                        </a>
+                      </strong>
+                      <small>
+                        {item.sizes[0]?.label} · {money(item.sizes[0]?.price || item.price, currency, eurRate)}
+                      </small>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAdd(item, item.sizes[0]?.label || "1 шт.");
+                        setAdded(true);
+                      }}
+                    >
+                      {t.addShort}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </section>
     </div>
@@ -2986,7 +3310,7 @@ function CheckoutForm({
   eurRate: number;
   initialResume: TelegramResume | null;
   onBack: () => void;
-  onSuccess: () => void;
+  onSuccess: (method: ContactMethod) => void;
 }) {
   const phoneCodes = [
     { code: "+48", label: "PL +48" },
@@ -3040,10 +3364,14 @@ function CheckoutForm({
     { code: "+1", label: "US/CA +1" },
   ];
   const [phoneCode, setPhoneCode] = useState("+48");
+  const [contactMethod, setContactMethod] = useState<ContactMethod>("telegram");
+  const [invoice, setInvoice] = useState(false);
   const [form, setForm] = useState({
     name: "",
     phone: "",
     telegramUsername: "",
+    invoiceDetails: "",
+    comment: "",
     delivery: "post",
     country: "Polska",
     city: "",
@@ -3081,12 +3409,17 @@ function CheckoutForm({
           name: saved.name || "",
           phone: saved.phone || "",
           telegramUsername: saved.telegramUsername || "",
+          invoiceDetails: saved.invoiceDetails || "",
+          comment: saved.comment || "",
           delivery: saved.delivery || "post",
           country: saved.country || "Polska",
           city: saved.city || "",
           destination: saved.destination || "",
         }));
         if (saved.phoneCode) setPhoneCode(saved.phoneCode);
+        if (saved.contactMethod && CONTACT_METHODS.includes(saved.contactMethod))
+          setContactMethod(saved.contactMethod);
+        if (saved.invoice) setInvoice(true);
       }
     } catch {
       localStorage.removeItem(CHECKOUT_DRAFT_KEY);
@@ -3121,8 +3454,11 @@ function CheckoutForm({
 
   useEffect(() => {
     if (!draftHydrated) return;
-    localStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ ...form, phoneCode }));
-  }, [form, phoneCode, draftHydrated]);
+    localStorage.setItem(
+      CHECKOUT_DRAFT_KEY,
+      JSON.stringify({ ...form, phoneCode, contactMethod, invoice }),
+    );
+  }, [form, phoneCode, contactMethod, invoice, draftHydrated]);
 
   useEffect(() => {
     if (!verification || verification.status !== "pending") return;
@@ -3212,8 +3548,16 @@ function CheckoutForm({
       setError(t.required);
       return;
     }
-    if (SIMPLE_CHECKOUT && !/^[A-Za-z0-9_]{5,32}$/.test(telegramUsername)) {
+    if (
+      SIMPLE_CHECKOUT &&
+      contactMethod === "telegram" &&
+      !/^[A-Za-z0-9_]{5,32}$/.test(telegramUsername)
+    ) {
       setError(t.telegramUsernameInvalid);
+      return;
+    }
+    if (SIMPLE_CHECKOUT && invoice && form.invoiceDetails.trim().length < 3) {
+      setError(t.invoiceRequired);
       return;
     }
     if (!SIMPLE_CHECKOUT && (!verification || verification.status !== "verified")) {
@@ -3228,7 +3572,9 @@ function CheckoutForm({
         body: JSON.stringify({
           ...form,
           checkoutMode: SIMPLE_CHECKOUT ? "simple" : "verified",
-          telegramUsername,
+          contactMethod,
+          invoice,
+          telegramUsername: contactMethod === "telegram" ? telegramUsername : "",
           phone: `${phoneCode} ${form.phone}`.trim(),
           language: lang,
           displayCurrency: currency,
@@ -3251,8 +3597,8 @@ function CheckoutForm({
         throw new Error("order");
       }
       localStorage.removeItem(CHECKOUT_DRAFT_KEY);
-      onSuccess();
-      if (SIMPLE_CHECKOUT) {
+      onSuccess(contactMethod);
+      if (SIMPLE_CHECKOUT && contactMethod === "telegram") {
         const message = lang === "ru"
           ? "Здравствуйте! Я оформил заказ на сайте CleanTapi Shop."
           : "Добрий день! Я оформив замовлення на сайті CleanTapi Shop.";
@@ -3307,21 +3653,99 @@ function CheckoutForm({
           />
         </div>
       </label>
-      <label>
-        {t.telegramUsername}
-        <input
-          value={form.telegramUsername}
-          onChange={(e) => update("telegramUsername", e.target.value)}
-          inputMode="text"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder={t.telegramUsernamePlaceholder}
-          maxLength={64}
-          required
-        />
-        <small className="field-hint">{t.telegramUsernameHint}</small>
-      </label>
+      {SIMPLE_CHECKOUT && (
+        <fieldset className="contact-methods">
+          <legend>{t.contactMethod}</legend>
+          <div>
+            {CONTACT_METHODS.map((method) => (
+              <button
+                key={method}
+                type="button"
+                className={contactMethod === method ? "active" : ""}
+                aria-pressed={contactMethod === method}
+                onClick={() => setContactMethod(method)}
+              >
+                {method === "telegram"
+                  ? "Telegram"
+                  : method === "whatsapp"
+                    ? "WhatsApp"
+                    : method === "viber"
+                      ? "Viber"
+                      : t.contactPhoneCall}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {(!SIMPLE_CHECKOUT || contactMethod === "telegram") && (
+        <label>
+          {t.telegramUsername}
+          <input
+            value={form.telegramUsername}
+            onChange={(e) => update("telegramUsername", e.target.value)}
+            inputMode="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder={t.telegramUsernamePlaceholder}
+            maxLength={64}
+            required
+          />
+          <small className="field-hint">{t.telegramUsernameHint}</small>
+        </label>
+      )}
+      {SIMPLE_CHECKOUT && contactMethod !== "telegram" && (
+        <small className="field-hint contact-hint">{t.contactHintOther}</small>
+      )}
+      {SIMPLE_CHECKOUT && (
+        <>
+          <label>
+            {t.deliveryCountry}
+            <select
+              value={form.country}
+              onChange={(e) => update("country", e.target.value)}
+            >
+              {DELIVERY_COUNTRIES.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+              <option value="other">{t.otherCountry}</option>
+            </select>
+            <small className="field-hint">{t.deliveryNote}</small>
+          </label>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={invoice}
+              onChange={(e) => setInvoice(e.target.checked)}
+            />
+            <span>{t.invoice}</span>
+          </label>
+          {invoice && (
+            <label>
+              {t.invoiceDetails}
+              <input
+                value={form.invoiceDetails}
+                onChange={(e) => update("invoiceDetails", e.target.value)}
+                placeholder={t.invoiceDetailsPlaceholder}
+                maxLength={200}
+                required
+              />
+            </label>
+          )}
+          <label>
+            {t.comment}
+            <textarea
+              value={form.comment}
+              onChange={(e) => update("comment", e.target.value)}
+              placeholder={t.commentPlaceholder}
+              maxLength={500}
+              rows={3}
+            />
+          </label>
+        </>
+      )}
       {/* Temporarily hidden. Set SIMPLE_CHECKOUT to false to restore verified Telegram. */}
       {!SIMPLE_CHECKOUT && <section className={`telegram-verification ${verification?.status === "verified" ? "is-verified" : ""}`}>
         <div className="telegram-verification-copy">
